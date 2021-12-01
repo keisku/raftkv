@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -35,46 +36,43 @@ var (
 )
 
 func init() {
-	flag.IntVar(&loglevel, "log-level", getEnvInt("LOG_LEVEL", 3), "")
-	hclog.DefaultOptions.Level = hclog.Level(loglevel)
-	l = hclog.New(hclog.DefaultOptions)
-
 	// Required values
 	flag.StringVar(&serverId, "server-id", os.Getenv("SERVER_ID"), "a unique ID for this server across all time")
-	if serverId == "" {
-		l.Warn("server id is required")
-		os.Exit(1)
-	}
 	flag.StringVar(&raftAddr, "raft-addr", os.Getenv("RAFT_ADDR"), "an address raft binds")
-	if raftAddr == "" {
-		l.Warn("raft addr id is required")
-		os.Exit(1)
-	}
 	flag.StringVar(&grpcAddr, "grpc-addr", os.Getenv("GRPC_ADDR"), "an address raft gRPC server listens to")
-	if grpcAddr == "" {
-		l.Warn("gRPC addr id is required")
-		os.Exit(1)
-	}
 	flag.StringVar(&grpcgwAddr, "grpcgw-addr", os.Getenv("GRPC_GATEWAY_ADDR"), "an address raft gRPC-Gateway server listens to")
-	if grpcgwAddr == "" {
-		l.Warn("gRPC-Gateway addr id is required")
-		os.Exit(1)
-	}
 
 	// Optional values
 	flag.StringVar(&dir, "dir", os.Getenv("SNAPSHOT_STORE_DIR"), "a directory for a snapshot store")
-	if dir == "" {
-		dir = fmt.Sprintf("_data/%s_%v.d", serverId, time.Now().Unix())
-		l.Debug("an optional dir is missing, so set a file snapshot store directory forcefully", "dir", dir)
-	}
-	os.MkdirAll(dir, 0700)
 	flag.StringVar(&joinAddr, "join-addr", os.Getenv("JOIN_ADDR"), "an address to send a join request")
-	if joinAddr == "" {
-		l.Debug("an optional join address is missing")
-	}
 	flag.IntVar(&maxPool, "maxpool", getEnvInt("MAXPOOL", 3), "how many connections we will pool")
 	flag.IntVar(&retain, "retain", getEnvInt("RETAIN", 2), "how many snapshots are retained")
 	flag.IntVar(&timeout, "timeout", getEnvInt("TIMEOUT_SECOND", 10), "the amount of time we wait for the command to be started")
+	flag.IntVar(&loglevel, "log-level", getEnvInt("LOG_LEVEL", 3), "")
+
+	flag.Parse()
+
+	// setup a logger
+	hclog.DefaultOptions.Level = hclog.Level(loglevel)
+	l = hclog.New(hclog.DefaultOptions)
+
+	for k, v := range map[string]string{
+		"server id":         serverId,
+		"raft addr":         raftAddr,
+		"grpc addr":         grpcAddr,
+		"grpc gateway addr": grpcgwAddr,
+	} {
+		if v == "" {
+			l.Warn(fmt.Sprintf("%s is required", k))
+			os.Exit(1)
+		}
+	}
+
+	dir = filepath.Join(dir, fmt.Sprintf("%s_%v.d", serverId, time.Now().Unix()))
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		l.Warn("exit due to a failure of making a directory for a file snapshot store", "error", err)
+		os.Exit(1)
+	}
 }
 
 func main() {
