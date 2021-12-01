@@ -8,7 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hashicorp/go-hclog"
-	"github.com/kei6u/raftkv"
+	"github.com/kei6u/raftkv/fsm"
 	"google.golang.org/grpc"
 )
 
@@ -19,7 +19,7 @@ type Server struct {
 	gRPCGWServer   *http.Server
 }
 
-func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger, store *raftkv.Store) (*Server, error) {
+func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger, store *fsm.Store) (*Server, error) {
 	grpcServer := newgRPCServer(store, l)
 	httpServer, conn, err := newgRPCGWServer(ctx, gRPCAddr, gRPCGWAddr)
 	if err != nil {
@@ -33,7 +33,7 @@ func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger,
 	}, nil
 }
 
-func newgRPCServer(store *raftkv.Store, l hclog.Logger) *grpc.Server {
+func newgRPCServer(store *fsm.Store, l hclog.Logger) *grpc.Server {
 	grpcserver := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			hclogUnaryInterceptor(l),

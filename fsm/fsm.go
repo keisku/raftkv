@@ -1,4 +1,4 @@
-package raftkv
+package fsm
 
 import (
 	"encoding/json"

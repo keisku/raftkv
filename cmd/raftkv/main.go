@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/kei6u/raftkv"
+	"github.com/kei6u/raftkv/fsm"
 	raftkvpb "github.com/kei6u/raftkv/proto/v1"
 	"google.golang.org/grpc"
 )
@@ -81,13 +82,13 @@ func main() {
 		cancel()
 	}()
 
-	s := raftkv.NewStore(
+	s := fsm.NewStore(
 		dir,
 		raftAddr,
 		l,
-		raftkv.WithMaxPool(maxPool),
-		raftkv.WithRetain(retain),
-		raftkv.WithTimeoutSecond(timeout),
+		fsm.WithMaxPool(maxPool),
+		fsm.WithRetain(retain),
+		fsm.WithTimeoutSecond(timeout),
 	)
 	if joinAddr == "" {
 		if err := s.OpenAsLeader(ctx, serverId); err != nil {

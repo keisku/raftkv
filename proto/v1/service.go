@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kei6u/raftkv"
+	"github.com/kei6u/raftkv/fsm"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -14,15 +14,15 @@ import (
 var _ RaftkvServiceServer = (*raftkvService)(nil)
 
 type raftkvService struct {
-	store *raftkv.Store
+	store *fsm.Store
 }
 
-func newRaftkvService(s *raftkv.Store) *raftkvService { return &raftkvService{store: s} }
+func newRaftkvService(s *fsm.Store) *raftkvService { return &raftkvService{store: s} }
 
 func (s *raftkvService) Get(_ context.Context, req *GetRequest) (*wrapperspb.StringValue, error) {
 	v, err := s.store.Get(req.GetKey())
 	if err != nil {
-		if errors.Is(err, raftkv.ErrNotFound) {
+		if errors.Is(err, fsm.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -32,7 +32,7 @@ func (s *raftkvService) Get(_ context.Context, req *GetRequest) (*wrapperspb.Str
 
 func (s *raftkvService) Set(_ context.Context, req *SetRequest) (*emptypb.Empty, error) {
 	if err := s.store.Set(req.GetKey(), req.GetValue()); err != nil {
-		if errors.Is(err, raftkv.ErrEmptyKey) {
+		if errors.Is(err, fsm.ErrEmptyKey) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -42,7 +42,7 @@ func (s *raftkvService) Set(_ context.Context, req *SetRequest) (*emptypb.Empty,
 
 func (s *raftkvService) Delete(_ context.Context, req *DeleteRequest) (*emptypb.Empty, error) {
 	if err := s.store.Delete(req.GetKey()); err != nil {
-		if errors.Is(err, raftkv.ErrEmptyKey) {
+		if errors.Is(err, fsm.ErrEmptyKey) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
