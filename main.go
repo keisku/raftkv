@@ -93,12 +93,12 @@ func main() {
 	)
 	if joinAddr == "" {
 		if err := s.OpenAsLeader(ctx, serverId); err != nil {
-			l.Warn("exit due to a failure of opening a store as a leader", "error", err)
+			l.Warn("exit since opening a store as a leader fails", "error", err)
 			os.Exit(1)
 		}
 	} else {
 		if err := s.Open(ctx, serverId); err != nil {
-			l.Warn("exit due to a failure of opening a store", "error", err)
+			l.Warn("exit since opening a store fails", "error", err)
 			os.Exit(1)
 		}
 		conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure())
