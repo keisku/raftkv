@@ -1,5 +1,7 @@
 # raftkv
 
+:construction: Still developing.... :construction: 
+
 This repository holds a simple distributed key-value store by using [hashicorp/raft](https://github.com/hashicorp/raft).
 
 ## Usage
