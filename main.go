@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,66 +16,68 @@ import (
 	"google.golang.org/grpc"
 )
 
-func main() {
-	var logLevel int
-	if err := loadInt("LOG_LEVEL", &logLevel); err != nil {
-		logLevel = int(hclog.Info)
-	}
-	hclog.DefaultOptions.Level = hclog.Level(logLevel)
-	l := hclog.New(hclog.DefaultOptions)
+var (
+	l hclog.Logger
 
-	var (
-		// required
-		serverId   string
-		raftAddr   string
-		grpcAddr   string
-		grpcgwAddr string
-		// optional
-		dir      string
-		joinAddr string
-		maxPool  int
-		retain   int
-		timeout  int
-	)
+	// required
+	serverId   string
+	raftAddr   string
+	grpcAddr   string
+	grpcgwAddr string
+
+	// options
+	dir      string
+	joinAddr string
+	loglevel int
+	maxPool  int
+	retain   int
+	timeout  int
+)
+
+func init() {
+	flag.IntVar(&loglevel, "log-level", getEnvInt("LOG_LEVEL", 3), "")
+	hclog.DefaultOptions.Level = hclog.Level(loglevel)
+	l = hclog.New(hclog.DefaultOptions)
 
 	// Required values
-	if err := loadString("SERVER_ID", &serverId); err != nil {
-		l.Warn(err.Error())
+	flag.StringVar(&serverId, "server-id", os.Getenv("SERVER_ID"), "a unique ID for this server across all time")
+	if serverId == "" {
+		l.Warn("server id is required")
 		os.Exit(1)
 	}
-	if err := loadAddr("RAFT_ADDR", &raftAddr); err != nil {
-		l.Warn(err.Error())
+	flag.StringVar(&raftAddr, "raft-addr", os.Getenv("RAFT_ADDR"), "an address raft binds")
+	if raftAddr == "" {
+		l.Warn("raft addr id is required")
 		os.Exit(1)
 	}
-	if err := loadAddr("GRPC_ADDR", &grpcAddr); err != nil {
-		l.Warn(err.Error())
+	flag.StringVar(&grpcAddr, "grpc-addr", os.Getenv("GRPC_ADDR"), "an address raft gRPC server listens to")
+	if grpcAddr == "" {
+		l.Warn("gRPC addr id is required")
 		os.Exit(1)
 	}
-	if err := loadAddr("GRPC_GATEWAY_ADDR", &grpcgwAddr); err != nil {
-		l.Warn(err.Error())
+	flag.StringVar(&grpcgwAddr, "grpcgw-addr", os.Getenv("GRPC_GATEWAY_ADDR"), "an address raft gRPC-Gateway server listens to")
+	if grpcgwAddr == "" {
+		l.Warn("gRPC-Gateway addr id is required")
 		os.Exit(1)
 	}
 
 	// Optional values
-	if err := loadString("FILE_SNAPSHOT_STORE_DIR", &dir); err != nil {
-		l.Debug(err.Error())
+	flag.StringVar(&dir, "dir", os.Getenv("SNAPSHOT_STORE_DIR"), "a directory for a snapshot store")
+	if dir == "" {
 		dir = fmt.Sprintf("_data/%s_%v.d", serverId, time.Now().Unix())
-		l.Debug("set a file snapshot store directory forcefully", "dir", dir)
+		l.Debug("an optional dir is missing, so set a file snapshot store directory forcefully", "dir", dir)
 	}
 	os.MkdirAll(dir, 0700)
-	if err := loadString("JOIN_ADDR", &joinAddr); err != nil {
-		l.Debug(err.Error())
+	flag.StringVar(&joinAddr, "join-addr", os.Getenv("JOIN_ADDR"), "an address to send a join request")
+	if joinAddr == "" {
+		l.Debug("an optional join address is missing")
 	}
-	if err := loadInt("MAX_POOL", &maxPool); err != nil {
-		l.Debug(err.Error())
-	}
-	if err := loadInt("RETAIN", &retain); err != nil {
-		l.Debug(err.Error())
-	}
-	if err := loadInt("TIMEOUT_SECOND", &timeout); err != nil {
-		l.Debug(err.Error())
-	}
+	flag.IntVar(&maxPool, "maxpool", getEnvInt("MAXPOOL", 3), "how many connections we will pool")
+	flag.IntVar(&retain, "retain", getEnvInt("RETAIN", 2), "how many snapshots are retained")
+	flag.IntVar(&timeout, "timeout", getEnvInt("TIMEOUT_SECOND", 10), "the amount of time we wait for the command to be started")
+}
 
+func main() {
 	sig := make(chan os.Signal, 1)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -127,4 +131,16 @@ func main() {
 
 	<-ctx.Done()
 	server.Stop()
+}
+
+func getEnvInt(key string, defaulti int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaulti
+	}
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		return defaulti
+	}
+	return i
 }
