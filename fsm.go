@@ -88,8 +88,6 @@ func (s kvstore) clone() kvstore {
 }
 
 func (s kvstore) Persist(sink raft.SnapshotSink) error {
-	defer sink.Close()
-
 	b, err := json.Marshal(s)
 	if err != nil {
 		_ = sink.Cancel()
@@ -99,7 +97,9 @@ func (s kvstore) Persist(sink raft.SnapshotSink) error {
 		_ = sink.Cancel()
 		return fmt.Errorf("cancel persisting a kvstore: %w", err)
 	}
-
+	if err := sink.Close(); err != nil {
+		return fmt.Errorf("failed to close a sink: %w", err)
+	}
 	return nil
 }
 
