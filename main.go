@@ -117,6 +117,7 @@ func main() {
 			cancel()
 			return
 		}
+		_ = conn.Close()
 	}
 
 	server, err := raftkvpb.NewServer(ctx, grpcAddr, grpcgwAddr, l, s)
