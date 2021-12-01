@@ -5,10 +5,11 @@ import (
 )
 
 type Options struct {
+	// how many connections we will pool
 	maxPool int
 	// the amount of time we wait for the command to be started.
 	timeout time.Duration
-	// retain parameter controls how many snapshots are retained.
+	// how many snapshots are retained.
 	retain int
 }
 
