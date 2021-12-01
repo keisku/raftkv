@@ -34,8 +34,11 @@ func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger,
 }
 
 func newgRPCServer(store *raftkv.Store, l hclog.Logger) *grpc.Server {
-	grpcserver := grpc.NewServer()
-	//@todo implement a middleware of hclog.
+	grpcserver := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			hclogUnaryInterceptor(l),
+		),
+	)
 	RegisterRaftkvServiceServer(grpcserver, newRaftkvService(store))
 	return grpcserver
 }
