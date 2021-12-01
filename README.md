@@ -1,6 +1,6 @@
 # raftkv
 
-This repository holds A simple distributed key-value store by using [hashicorp/raft](https://github.com/hashicorp/raft).
+This repository holds a simple distributed key-value store by using [hashicorp/raft](https://github.com/hashicorp/raft).
 
 ## Usage
 
