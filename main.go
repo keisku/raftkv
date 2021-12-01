@@ -122,7 +122,7 @@ func main() {
 
 	server, err := raftkvpb.NewServer(ctx, grpcAddr, grpcgwAddr, l, s)
 	if err != nil {
-		l.Warn("exit due to a failure of a server", "error", err)
+		l.Warn("exit due to a failure of initializing a server", "error", err)
 		cancel()
 	}
 	if err := server.Start(ctx, grpcAddr); err != nil {
