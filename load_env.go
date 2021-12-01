@@ -1,4 +1,4 @@
-package raftkv
+package main
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-func LoadString(key string, value *string) error {
+func loadString(key string, value *string) error {
 	v := os.Getenv(key)
 	if v == "" {
 		return fmt.Errorf("%s is missing", key)
@@ -17,8 +17,8 @@ func LoadString(key string, value *string) error {
 	return nil
 }
 
-func LoadAddr(key string, value *string) error {
-	if err := LoadString(key, value); err != nil {
+func loadAddr(key string, value *string) error {
+	if err := loadString(key, value); err != nil {
 		return err
 	}
 	if !strings.HasPrefix(*value, ":") && unicode.IsDigit(rune((*value)[0])) {
@@ -27,7 +27,7 @@ func LoadAddr(key string, value *string) error {
 	return nil
 }
 
-func LoadInt(key string, value *int) error {
+func loadInt(key string, value *int) error {
 	v := os.Getenv(key)
 	if v == "" {
 		return fmt.Errorf("%s is missing", key)

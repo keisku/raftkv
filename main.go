@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/kei6u/raftkv"
 	"github.com/kei6u/raftkv/fsm"
 	raftkvpb "github.com/kei6u/raftkv/proto/v1"
 	"google.golang.org/grpc"
@@ -17,7 +16,7 @@ import (
 
 func main() {
 	var logLevel int
-	if err := raftkv.LoadInt("LOG_LEVEL", &logLevel); err != nil {
+	if err := loadInt("LOG_LEVEL", &logLevel); err != nil {
 		logLevel = int(hclog.Info)
 	}
 	hclog.DefaultOptions.Level = hclog.Level(logLevel)
@@ -38,40 +37,40 @@ func main() {
 	)
 
 	// Required values
-	if err := raftkv.LoadString("SERVER_ID", &serverId); err != nil {
+	if err := loadString("SERVER_ID", &serverId); err != nil {
 		l.Warn(err.Error())
 		os.Exit(1)
 	}
-	if err := raftkv.LoadAddr("RAFT_ADDR", &raftAddr); err != nil {
+	if err := loadAddr("RAFT_ADDR", &raftAddr); err != nil {
 		l.Warn(err.Error())
 		os.Exit(1)
 	}
-	if err := raftkv.LoadAddr("GRPC_ADDR", &grpcAddr); err != nil {
+	if err := loadAddr("GRPC_ADDR", &grpcAddr); err != nil {
 		l.Warn(err.Error())
 		os.Exit(1)
 	}
-	if err := raftkv.LoadAddr("GRPC_GATEWAY_ADDR", &grpcgwAddr); err != nil {
+	if err := loadAddr("GRPC_GATEWAY_ADDR", &grpcgwAddr); err != nil {
 		l.Warn(err.Error())
 		os.Exit(1)
 	}
 
 	// Optional values
-	if err := raftkv.LoadString("FILE_SNAPSHOT_STORE_DIR", &dir); err != nil {
+	if err := loadString("FILE_SNAPSHOT_STORE_DIR", &dir); err != nil {
 		l.Debug(err.Error())
 		dir = fmt.Sprintf("_data/%s_%v.d", serverId, time.Now().Unix())
 		l.Debug("set a file snapshot store directory forcefully", "dir", dir)
 	}
 	os.MkdirAll(dir, 0700)
-	if err := raftkv.LoadString("JOIN_ADDR", &joinAddr); err != nil {
+	if err := loadString("JOIN_ADDR", &joinAddr); err != nil {
 		l.Debug(err.Error())
 	}
-	if err := raftkv.LoadInt("MAX_POOL", &maxPool); err != nil {
+	if err := loadInt("MAX_POOL", &maxPool); err != nil {
 		l.Debug(err.Error())
 	}
-	if err := raftkv.LoadInt("RETAIN", &retain); err != nil {
+	if err := loadInt("RETAIN", &retain); err != nil {
 		l.Debug(err.Error())
 	}
-	if err := raftkv.LoadInt("TIMEOUT_SECOND", &timeout); err != nil {
+	if err := loadInt("TIMEOUT_SECOND", &timeout); err != nil {
 		l.Debug(err.Error())
 	}
 

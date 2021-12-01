@@ -1,4 +1,4 @@
-package raftkv
+package main
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadString(t *testing.T) {
+func Test_loadString(t *testing.T) {
 	var value string
 
 	tests := []struct {
@@ -38,7 +38,7 @@ func TestLoadString(t *testing.T) {
 			if tt.setEnv != nil {
 				tt.setEnv(t)
 			}
-			err := LoadString(tt.key, &value)
+			err := loadString(tt.key, &value)
 			if tt.wantErr == nil {
 				assert.Nil(t, err)
 			} else {
@@ -49,7 +49,7 @@ func TestLoadString(t *testing.T) {
 	}
 }
 
-func TestLoadAddr(t *testing.T) {
+func Test_loadAddr(t *testing.T) {
 	var value string
 
 	tests := []struct {
@@ -98,7 +98,7 @@ func TestLoadAddr(t *testing.T) {
 			if tt.setEnv != nil {
 				tt.setEnv(t)
 			}
-			err := LoadAddr(tt.key, &value)
+			err := loadAddr(tt.key, &value)
 			if tt.wantErr == nil {
 				assert.Nil(t, err)
 			} else {
@@ -109,7 +109,7 @@ func TestLoadAddr(t *testing.T) {
 	}
 }
 
-func TestLoadInt(t *testing.T) {
+func Test_loadInt(t *testing.T) {
 	var value int
 
 	tests := []struct {
@@ -140,7 +140,7 @@ func TestLoadInt(t *testing.T) {
 			if tt.setEnv != nil {
 				tt.setEnv(t)
 			}
-			err := LoadInt(tt.key, &value)
+			err := loadInt(tt.key, &value)
 			if tt.wantErr == nil {
 				assert.Nil(t, err)
 			} else {

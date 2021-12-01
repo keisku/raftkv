@@ -1,6 +1,6 @@
 # raftkv
 
-:construction: Still developing.... :construction: 
+:construction: Still developing.... :construction:
 
 This repository holds a simple distributed key-value store by using [hashicorp/raft](https://github.com/hashicorp/raft).
 
@@ -9,7 +9,7 @@ This repository holds a simple distributed key-value store by using [hashicorp/r
 Build a raftkv.
 
 ```shell
-go build -o raftkv ./cmd/raftkv/main.go
+go build -o raftkv *.go
 ```
 
 Start a leader server and create a cluster.
