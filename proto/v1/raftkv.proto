@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package raftkvpb.v1;
+
+option go_package = "proto/v1/raftkvpb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+service RaftkvService {
+  // Get returns the value for the given key.
+  rpc Get(GetRequest) returns (google.protobuf.StringValue) {
+    option (google.api.http) = {
+      get : "/v1/get/{key}"
+    };
+  }
+  // Set sets the value for the given key.
+  rpc Set(SetRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/v1/set"
+      body : "*"
+    };
+  }
+  // Delete removes the given key.
+  rpc Delete(DeleteRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete : "/v1/{key}"
+    };
+  }
+  // Join joins the node, identified by nodeID and reachable at address, to the cluster.
+  rpc Join(JoinRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/v1/join"
+      body : "*"
+    };
+  }
+}
+
+message GetRequest {
+	string key = 1;
+}
+
+message SetRequest {
+	string key = 1;
+	string value = 2;
+}
+
+message DeleteRequest {
+	string key = 1;
+}
+
+message JoinRequest {
+	string node_id = 1;
+	string address = 2;
+}
