@@ -1,0 +1,45 @@
+# WANING: Still developing, not woking raftkv by using this file.
+version: "3.8"
+services:
+  server0:
+    build:
+      context: .
+    ports:
+      - 50001:50001
+      - 50002:50002
+    environment:
+      SERVER_ID: server0
+      RAFT_ADDR: localhost:50000
+      GRPC_ADDR: :50001
+      GRPC_GATEWAY_ADDR: :50002
+      SNAPSHOT_STORE_DIR: /raftkv/data
+    networks:
+      - default
+  server1:
+    build:
+      context: .
+    ports:
+      - 50101:50101
+    environment:
+      SERVER_ID: server1
+      RAFT_ADDR: localhost:50100
+      JOIN_ADDR: :50001
+      GRPC_ADDR: :50101
+      GRPC_GATEWAY_ADDR: :50102
+      SNAPSHOT_STORE_DIR: /raftkv/data
+    networks:
+      - default
+  server2:
+    build:
+      context: .
+    ports:
+      - 50201:50201
+    environment:
+      SERVER_ID: server2
+      RAFT_ADDR: localhost:50200
+      JOIN_ADDR: :50001
+      GRPC_ADDR: :50201
+      GRPC_GATEWAY_ADDR: :50202
+      SNAPSHOT_STORE_DIR: /raftkv/data
+    networks:
+      - default
