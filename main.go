@@ -101,21 +101,23 @@ func main() {
 			l.Warn("exit since opening a store fails", "error", err)
 			os.Exit(1)
 		}
-		conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure())
-		if err != nil {
-			l.Warn("exit due to a failure of dialing a gRPC server to join", "error", err)
-			cancel()
-			return
-		}
-		if _, err := raftkvpb.NewRaftkvServiceClient(conn).Join(ctx, &raftkvpb.JoinRequest{
-			NodeId:  serverId,
-			Address: raftAddr,
-		}); err != nil {
-			l.Warn("exit due to a failure of joining", "error", err)
-			cancel()
-			return
-		}
-		_ = conn.Close()
+		go func() {
+			conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure(), grpc.WithBlock())
+			if err != nil {
+				l.Warn("exit since gRPC server dial for joining fails", "error", err)
+				cancel()
+				return
+			}
+			if _, err := raftkvpb.NewRaftkvServiceClient(conn).Join(ctx, &raftkvpb.JoinRequest{
+				NodeId:  serverId,
+				Address: raftAddr,
+			}); err != nil {
+				l.Warn("exit since joining a cluster fails", "error", err)
+				cancel()
+				return
+			}
+			_ = conn.Close()
+		}()
 	}
 
 	server, err := raftkvpb.NewServer(ctx, grpcAddr, grpcgwAddr, l, s)
