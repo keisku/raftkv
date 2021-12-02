@@ -3,6 +3,7 @@ module github.com/kei6u/raftkv
 go 1.17
 
 require (
+	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0
 	github.com/hashicorp/go-hclog v0.9.1
 	github.com/hashicorp/raft v1.3.2

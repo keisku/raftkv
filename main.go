@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-hclog"
 	"github.com/kei6u/raftkv/fsm"
 	raftkvpb "github.com/kei6u/raftkv/proto/v1"
@@ -91,33 +92,33 @@ func main() {
 		fsm.WithRetain(retain),
 		fsm.WithTimeoutSecond(timeout),
 	)
-	if joinAddr == "" {
-		if err := s.OpenAsLeader(ctx, serverId); err != nil {
-			l.Warn("exit since opening a store as a leader fails", "error", err)
-			os.Exit(1)
+
+	if err := s.Open(ctx, serverId, joinAddr == ""); err != nil {
+		l.Warn("exit since  a store failed to be opened", "error", err)
+		os.Exit(1)
+	}
+
+	if joinAddr != "" {
+		conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure())
+		if err != nil {
+			l.Warn(fmt.Sprintf("failed to dial a gRPC server at %s", joinAddr), "error", err)
+			cancel()
+			return
 		}
-	} else {
-		if err := s.Open(ctx, serverId); err != nil {
-			l.Warn("exit since opening a store fails", "error", err)
-			os.Exit(1)
-		}
-		go func() {
-			conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure(), grpc.WithBlock())
-			if err != nil {
-				l.Warn("exit since gRPC server dial for joining fails", "error", err)
-				cancel()
-				return
-			}
-			if _, err := raftkvpb.NewRaftkvServiceClient(conn).Join(ctx, &raftkvpb.JoinRequest{
+		c := raftkvpb.NewRaftkvServiceClient(conn)
+		op := func() error {
+			_, err = c.Join(ctx, &raftkvpb.JoinRequest{
 				NodeId:  serverId,
 				Address: raftAddr,
-			}); err != nil {
-				l.Warn("exit since joining a cluster fails", "error", err)
-				cancel()
-				return
-			}
-			_ = conn.Close()
-		}()
+			})
+			return err
+		}
+		if err := backoff.Retry(op, backoff.NewExponentialBackOff()); err != nil {
+			l.Warn("failed to join a cluster", "error", err)
+			cancel()
+			return
+		}
+		_ = conn.Close()
 	}
 
 	server, err := raftkvpb.NewServer(ctx, grpcAddr, grpcgwAddr, l, s)
