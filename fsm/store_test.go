@@ -50,6 +50,9 @@ func TestSingleStoreAllOps(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(3 * time.Second) // wait for a server ready.
 
+	// Set an empty key.
+	assert.Error(t, ErrEmptyKey, s.Set("", "value"))
+
 	// Set a key-value.
 	assert.Nil(t, s.Set("key", "value"))
 
