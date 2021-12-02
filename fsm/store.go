@@ -71,7 +71,7 @@ func (s *Store) Open(ctx context.Context, serverId string, isSingle bool) error 
 	}
 	logStore, err := newLogStore(stableStore.(raft.LogStore))
 	if err != nil {
-		return fmt.Errorf("failed to create a stable store: %w", err)
+		return fmt.Errorf("failed to create a log store: %w", err)
 	}
 
 	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, tp)
