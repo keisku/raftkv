@@ -108,8 +108,8 @@ func main() {
 		c := raftkvpb.NewRaftkvServiceClient(conn)
 		op := func() error {
 			_, err = c.Join(ctx, &raftkvpb.JoinRequest{
-				NodeId:  serverId,
-				Address: raftAddr,
+				ServerId: serverId,
+				Address:  raftAddr,
 			})
 			return err
 		}

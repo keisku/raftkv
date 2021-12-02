@@ -60,7 +60,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| node_id | [string](#string) |  |  |
+| server_id | [string](#string) |  |  |
 | address | [string](#string) |  |  |
 
 

@@ -51,7 +51,7 @@ func (s *raftkvService) Delete(_ context.Context, req *DeleteRequest) (*emptypb.
 }
 
 func (s *raftkvService) Join(_ context.Context, req *JoinRequest) (*emptypb.Empty, error) {
-	if err := s.store.Join(req.GetNodeId(), req.GetAddress()); err != nil {
+	if err := s.store.Join(req.GetServerId(), req.GetAddress()); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &emptypb.Empty{}, nil

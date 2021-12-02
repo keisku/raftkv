@@ -261,7 +261,7 @@ func RegisterRaftkvServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/raftkvpb.v1.RaftkvService/Delete", runtime.WithHTTPPathPattern("/v1/{key}"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/raftkvpb.v1.RaftkvService/Delete", runtime.WithHTTPPathPattern("/v1/delete/{key}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -386,7 +386,7 @@ func RegisterRaftkvServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/raftkvpb.v1.RaftkvService/Delete", runtime.WithHTTPPathPattern("/v1/{key}"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/raftkvpb.v1.RaftkvService/Delete", runtime.WithHTTPPathPattern("/v1/delete/{key}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -430,7 +430,7 @@ var (
 
 	pattern_RaftkvService_Set_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "set"}, ""))
 
-	pattern_RaftkvService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"v1", "key"}, ""))
+	pattern_RaftkvService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "delete", "key"}, ""))
 
 	pattern_RaftkvService_Join_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "join"}, ""))
 )
