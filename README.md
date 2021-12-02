@@ -6,7 +6,7 @@ This repository holds a simple distributed key-value store by using [hashicorp/r
 
 ## Usage
 
-### Run
+### Run binaries
 
 Build a raftkv.
 
@@ -44,15 +44,20 @@ Register a follower to a cluster.
 --dir=raftkv.d
 ```
 
+### Run containers
+
+```shell
+docker compose up
+```
+
 ### Test
 
 Set a key-value to a leader.
 
 ```shell
-curl --location --request POST 'localhost:50002/v1/set' \
---header 'Content-Type: application/json' \
+curl -XPOST 'localhost:50002/v1/set' \
 --data-raw '{
-    "key": "programming",
+    "key": "programming_language",
     "value": "golang"
 }'
 ```
@@ -60,8 +65,8 @@ curl --location --request POST 'localhost:50002/v1/set' \
 Get a value from a follower.
 
 ```shell
-curl --location --request GET 'localhost:50102/v1/get/programming'
-curl --location --request GET 'localhost:50202/v1/get/programming'
+curl -XGET 'localhost:50102/v1/get/programming_language'
+curl -XGET 'localhost:50202/v1/get/programming_language'
 ```
 
 You can get "golang" from followers. It means a leader propagates the value to followers.
