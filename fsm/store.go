@@ -38,36 +38,12 @@ func NewStore(dir, addr string, l hclog.Logger, opt ...Option) *Store {
 	}
 }
 
-// Open opens the store. serverId should be the server identifier for this node.
-func (s *Store) Open(ctx context.Context, serverId string) error {
-	_, err := s.open(ctx, serverId)
-	return err
-}
-
-// OpenAsLeader opens the store and become a leader.
-func (s *Store) OpenAsLeader(ctx context.Context, serverId string) error {
-	s.logger.Info("opening the store as a leader", "server_id", serverId)
-
-	tp, err := s.open(ctx, serverId)
-	if err != nil {
-		return err
-	}
-
-	s.logger.Info("bootstraping the cluster")
-	if err := s.raft.BootstrapCluster(raft.Configuration{
-		Servers: []raft.Server{
-			{ID: raft.ServerID(serverId), Address: tp.LocalAddr()},
-		},
-	}).Error(); err != nil {
-		return fmt.Errorf("failed to bootstrap a cluster: %w", err)
-	}
-	return nil
-}
-
-func (s *Store) open(ctx context.Context, serverId string) (*raft.NetworkTransport, error) {
+// Open opens the store. If isSingle is set, and there are no existing peers,
+// then this node becomes the first node, and therefore leader of the cluster.
+func (s *Store) Open(ctx context.Context, serverId string, isSingle bool) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve a TCP address: %w", err)
+		return fmt.Errorf("failed to resolve a TCP address: %w", err)
 	}
 
 	tp, err := raft.NewTCPTransport(
@@ -78,12 +54,12 @@ func (s *Store) open(ctx context.Context, serverId string) (*raft.NetworkTranspo
 		os.Stderr,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build a new TCP transport: %w", err)
+		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
 	ss, err := raft.NewFileSnapshotStore(s.dir, s.options.retain, os.Stderr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build a new TCP transport: %w", err)
+		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
 	config := raft.DefaultConfig()
@@ -91,7 +67,7 @@ func (s *Store) open(ctx context.Context, serverId string) (*raft.NetworkTranspo
 
 	logStore, stableLogStore, err := newLogStore(filepath.Join(s.dir, "raft.db"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a log store: %s", err)
+		return fmt.Errorf("failed to create a log store: %s", err)
 	}
 
 	s.raft, err = raft.NewRaft(
@@ -103,7 +79,18 @@ func (s *Store) open(ctx context.Context, serverId string) (*raft.NetworkTranspo
 		tp,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct a new Raft node: %w", err)
+		return fmt.Errorf("failed to construct a new Raft node: %w", err)
+	}
+
+	if isSingle {
+		s.logger.Info("bootstraping the cluster")
+		if err := s.raft.BootstrapCluster(raft.Configuration{
+			Servers: []raft.Server{
+				{ID: raft.ServerID(serverId), Address: tp.LocalAddr()},
+			},
+		}).Error(); err != nil {
+			return fmt.Errorf("failed to bootstrap a cluster: %w", err)
+		}
 	}
 
 	go func() {
@@ -112,7 +99,7 @@ func (s *Store) open(ctx context.Context, serverId string) (*raft.NetworkTranspo
 		_ = tp.Close()
 	}()
 
-	return tp, nil
+	return nil
 }
 
 // This function is for unit tests.
