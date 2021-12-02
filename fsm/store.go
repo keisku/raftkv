@@ -167,38 +167,38 @@ func (s *Store) Delete(key string) error {
 	return nil
 }
 
-// Join joins a node, identified by nodeID and located at addr, to this store.
+// Join joins a node, identified by serverId and located at addr, to this store.
 // The node must be ready to respond to Raft communications at that address.
-func (s *Store) Join(nodeId, addr string) error {
+func (s *Store) Join(serverId, addr string) error {
 	confFuture := s.raft.GetConfiguration()
 	if err := confFuture.Error(); err != nil {
 		return fmt.Errorf("failed to proceed a join request: %w", err)
 	}
 
 	for _, srv := range confFuture.Configuration().Servers {
-		if isSameServer(srv, nodeId, addr) {
-			s.logger.Info(fmt.Sprintf("node %s at %s has already been a member of a cluster", nodeId, addr))
+		if isSameServer(srv, serverId, addr) {
+			s.logger.Info(fmt.Sprintf("node %s at %s has already been a member of a cluster", serverId, addr))
 			return nil
 		}
 		// If a node already exists with either the joining node's ID or address,
 		// that node may need to be removed from the config first.
-		if isServerExist(srv, nodeId, addr) {
+		if isServerExist(srv, serverId, addr) {
 			if err := s.raft.RemoveServer(srv.ID, 0, 0).Error(); err != nil {
-				return fmt.Errorf("failed to remove an existing node %s at %s: %w", nodeId, addr, err)
+				return fmt.Errorf("failed to remove an existing node %s at %s: %w", serverId, addr, err)
 			}
 		}
 	}
 
-	if err := s.raft.AddVoter(raft.ServerID(nodeId), raft.ServerAddress(addr), 0, 0).Error(); err != nil {
+	if err := s.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0).Error(); err != nil {
 		return fmt.Errorf("failed to add the given server to the cluster as a staging server: %w", err)
 	}
 	return nil
 }
 
-func isServerExist(s raft.Server, nodeId, addr string) bool {
-	return s.ID == raft.ServerID(nodeId) || s.Address == raft.ServerAddress(addr)
+func isServerExist(s raft.Server, serverId, addr string) bool {
+	return s.ID == raft.ServerID(serverId) || s.Address == raft.ServerAddress(addr)
 }
 
-func isSameServer(s raft.Server, nodeId, addr string) bool {
-	return s.ID == raft.ServerID(nodeId) && s.Address == raft.ServerAddress(addr)
+func isSameServer(s raft.Server, serverId, addr string) bool {
+	return s.ID == raft.ServerID(serverId) && s.Address == raft.ServerAddress(addr)
 }
