@@ -39,7 +39,7 @@ func NewStore(dir, addr string, l hclog.Logger, opt ...Option) *Store {
 }
 
 // Open opens the store. If isSingle is set, and there are no existing peers,
-// then this node becomes the first node, and therefore leader of the cluster.
+// then this server becomes the first server, and therefore leader of the cluster.
 func (s *Store) Open(ctx context.Context, serverId string, isSingle bool) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.addr)
 	if err != nil {
@@ -79,7 +79,7 @@ func (s *Store) Open(ctx context.Context, serverId string, isSingle bool) error 
 		tp,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to construct a new Raft node: %w", err)
+		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
 
 	if isSingle {
@@ -167,8 +167,8 @@ func (s *Store) Delete(key string) error {
 	return nil
 }
 
-// Join joins a node, identified by serverId and located at addr, to this store.
-// The node must be ready to respond to Raft communications at that address.
+// Join joins a server, identified by serverId and located at addr, to this store.
+// The server must be ready to respond to Raft communications at that address.
 func (s *Store) Join(serverId, addr string) error {
 	confFuture := s.raft.GetConfiguration()
 	if err := confFuture.Error(); err != nil {
@@ -177,14 +177,14 @@ func (s *Store) Join(serverId, addr string) error {
 
 	for _, srv := range confFuture.Configuration().Servers {
 		if isSameServer(srv, serverId, addr) {
-			s.logger.Info(fmt.Sprintf("node %s at %s has already been a member of a cluster", serverId, addr))
+			s.logger.Info(fmt.Sprintf("server %s at %s has already been a member of a cluster", serverId, addr))
 			return nil
 		}
-		// If a node already exists with either the joining node's ID or address,
-		// that node may need to be removed from the config first.
+		// If a server already exists with either the joining server's ID or address,
+		// that server may need to be removed from the config first.
 		if isServerExist(srv, serverId, addr) {
 			if err := s.raft.RemoveServer(srv.ID, 0, 0).Error(); err != nil {
-				return fmt.Errorf("failed to remove an existing node %s at %s: %w", serverId, addr, err)
+				return fmt.Errorf("failed to remove an existing server %s at %s: %w", serverId, addr, err)
 			}
 		}
 	}
