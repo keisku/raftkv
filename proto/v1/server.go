@@ -85,12 +85,13 @@ func (s *Server) Start(ctx context.Context, gRPCAddr string) error {
 func (s *Server) Stop() {
 	ctx := context.Background()
 	if s.gRPCGWServer != nil {
-		s.logger.Info("gRPC and HTTP servers are shutting down")
+		s.logger.Info("gRPC-Gateway server is shutting down")
 		if err := s.gRPCGWServer.Shutdown(ctx); err != nil {
 			s.logger.Error("failed to shutdown gRPC gateway server", "error", err)
 		}
 	}
 	if s.gRPCServer != nil {
+		s.logger.Info("gRPC server is gracefully stopping")
 		s.gRPCServer.GracefulStop()
 	}
 	s.logger.Info("Bye~~")
