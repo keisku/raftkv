@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-hclog"
@@ -69,7 +67,6 @@ func init() {
 		}
 	}
 
-	dir = filepath.Join(dir, fmt.Sprintf("%s_%v.d", serverId, time.Now().Unix()))
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		l.Warn("exit due to a failure of making a directory for a file snapshot store", "error", err)
 		os.Exit(1)
