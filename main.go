@@ -111,8 +111,9 @@ func main() {
 			})
 			return err
 		}
+		l.Info("new server is joining to a cluster", "server_id", serverId, "raft_addr", raftAddr)
 		if err := backoff.Retry(op, backoff.NewExponentialBackOff()); err != nil {
-			l.Warn("failed to join a cluster", "error", err)
+			l.Warn("new server failed to join a cluster", "error", err)
 			cancel()
 			return
 		}
