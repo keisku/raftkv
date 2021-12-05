@@ -45,7 +45,7 @@ func TestSingleStoreAllOps(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Create a leader store and a cluster.
+	// Create a leader store and bootstrap a cluster.
 	s, err := setupStore(ctx, "leader", "localhost:50000", true)
 	assert.Nil(t, err)
 	time.Sleep(3 * time.Second) // wait for a server ready.

@@ -38,9 +38,9 @@ func NewStore(dir, addr string, l hclog.Logger, opt ...Option) *Store {
 	}
 }
 
-// Open opens the store. If isSingle is set, and there are no existing peers,
+// Open opens the store. If `bootstrap` is true, and there are no existing peers,
 // then this server becomes the first server, and therefore leader of the cluster.
-func (s *Store) Open(ctx context.Context, serverId string, isSingle bool) error {
+func (s *Store) Open(ctx context.Context, serverId string, bootstrap bool) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
@@ -79,7 +79,7 @@ func (s *Store) Open(ctx context.Context, serverId string, isSingle bool) error 
 		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
 
-	if isSingle {
+	if bootstrap {
 		s.logger.Info("bootstraping the cluster")
 		if err := s.raft.BootstrapCluster(raft.Configuration{
 			Servers: []raft.Server{
