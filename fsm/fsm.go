@@ -61,7 +61,7 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 }
 
 func (s *Store) Restore(rc io.ReadCloser) error {
-	kvs := make(map[string]string)
+	kvs := make(kvstore)
 	if err := json.NewDecoder(rc).Decode(&kvs); err != nil {
 		return fmt.Errorf("failed to restore a FSM from a snapshot")
 	}
@@ -80,7 +80,7 @@ var _ raft.FSMSnapshot = (kvstore)(nil)
 type kvstore map[string]string
 
 func (s kvstore) clone() kvstore {
-	clone := make(map[string]string, len(s))
+	clone := make(kvstore, len(s))
 	for k, v := range s {
 		clone[k] = v
 	}
