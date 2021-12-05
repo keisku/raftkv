@@ -27,8 +27,8 @@ func setupStore(ctx context.Context, serverId, addr string, isSingle bool) (*Sto
 		<-ctx.Done()
 		_ = os.RemoveAll(dir)
 	}()
-	s := NewStore(dir, addr, hclog.New(hclog.DefaultOptions))
-	if err := s.Open(ctx, serverId, isSingle); err != nil {
+	s := NewStore(serverId, dir, addr, hclog.New(hclog.DefaultOptions))
+	if err := s.Open(ctx, isSingle); err != nil {
 		return nil, err
 	}
 	if isSingle {

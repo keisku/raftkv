@@ -17,30 +17,32 @@ import (
 
 // Store is a key-value store and behaves as a FSM.
 type Store struct {
-	dir     string
-	addr    string
-	kvstore kvstore
-	mu      sync.Mutex
-	raft    *raft.Raft
-	logger  hclog.Logger
-	options *Options
+	serverId raft.ServerID
+	dir      string
+	addr     string
+	kvstore  kvstore
+	mu       sync.Mutex
+	raft     *raft.Raft
+	logger   hclog.Logger
+	options  *Options
 }
 
 // NewStore initializes a store.
-func NewStore(dir, addr string, l hclog.Logger, opt ...Option) *Store {
+func NewStore(serverId, dir, addr string, l hclog.Logger, opt ...Option) *Store {
 	opts := newOptions(opt...)
 	return &Store{
-		dir:     dir,
-		addr:    addr,
-		kvstore: make(kvstore),
-		logger:  l,
-		options: opts,
+		serverId: raft.ServerID(serverId),
+		dir:      dir,
+		addr:     addr,
+		kvstore:  make(kvstore),
+		logger:   l,
+		options:  opts,
 	}
 }
 
 // Open opens the store. If `bootstrap` is true, and there are no existing peers,
 // then this server becomes the first server, and therefore leader of the cluster.
-func (s *Store) Open(ctx context.Context, serverId string, bootstrap bool) error {
+func (s *Store) Open(ctx context.Context, bootstrap bool) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
@@ -63,7 +65,7 @@ func (s *Store) Open(ctx context.Context, serverId string, bootstrap bool) error
 	}
 
 	config := raft.DefaultConfig()
-	config.LocalID = raft.ServerID(serverId)
+	config.LocalID = s.serverId
 
 	stableStore, err := newStableStore(filepath.Join(s.dir, "raft.db"))
 	if err != nil {
@@ -81,11 +83,10 @@ func (s *Store) Open(ctx context.Context, serverId string, bootstrap bool) error
 
 	if bootstrap {
 		s.logger.Info("bootstraping the cluster")
-		if err := s.raft.BootstrapCluster(raft.Configuration{
-			Servers: []raft.Server{
-				{ID: raft.ServerID(serverId), Address: tp.LocalAddr()},
-			},
-		}).Error(); err != nil {
+		if err := s.raft.BootstrapCluster(raft.Configuration{Servers: []raft.Server{{
+			ID:      s.serverId,
+			Address: tp.LocalAddr(),
+		}}}).Error(); err != nil {
 			return fmt.Errorf("failed to bootstrap a cluster: %w", err)
 		}
 	}
