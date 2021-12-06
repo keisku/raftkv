@@ -18,7 +18,7 @@ import (
 // Server holds a key-value store and behaves as a FSM.
 type Server struct {
 	serverId  raft.ServerID
-	dir       string
+	dataDir   string
 	advertise string
 	kvstore   kvstore
 	mu        sync.Mutex
@@ -28,11 +28,11 @@ type Server struct {
 }
 
 // NewServer initializes a server.
-func NewServer(serverId, dir, advertise string, l hclog.Logger, opt ...Option) *Server {
+func NewServer(serverId, dataDir, advertise string, l hclog.Logger, opt ...Option) *Server {
 	opts := newOptions(opt...)
 	return &Server{
 		serverId:  raft.ServerID(serverId),
-		dir:       dir,
+		dataDir:   dataDir,
 		advertise: advertise,
 		kvstore:   make(kvstore),
 		logger:    l,
@@ -59,7 +59,7 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
-	ss, err := raft.NewFileSnapshotStore(s.dir, s.options.retain, os.Stderr)
+	ss, err := raft.NewFileSnapshotStore(s.dataDir, s.options.retain, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
@@ -68,7 +68,7 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 	config.LocalID = s.serverId
 	config.Logger = s.logger
 
-	stableServer, logServer, err := newStore(filepath.Join(s.dir, "raft.db"))
+	stableServer, logServer, err := newStore(filepath.Join(s.dataDir, "raft.db"))
 	if err != nil {
 		return fmt.Errorf("failed to create a store: %w", err)
 	}

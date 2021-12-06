@@ -11,7 +11,7 @@ services:
       ADVERTISE_ADDR: server0:50000
       GRPC_ADDR: :50001
       GRPC_GATEWAY_ADDR: :50002
-      SNAPSHOT_STORE_DIR: /raftkv/data/server0
+      DATA_DIR: /raftkv/data/server0
     networks:
       - default
   server1:
@@ -25,7 +25,7 @@ services:
       JOIN_ADDR: server0:50001
       GRPC_ADDR: :50101
       GRPC_GATEWAY_ADDR: :50102
-      SNAPSHOT_STORE_DIR: /raftkv/data/server1
+      DATA_DIR: /raftkv/data/server1
     networks:
       - default
   server2:
@@ -39,6 +39,6 @@ services:
       JOIN_ADDR: server0:50001
       GRPC_ADDR: :50201
       GRPC_GATEWAY_ADDR: :50202
-      SNAPSHOT_STORE_DIR: /raftkv/data/server2
+      DATA_DIR: /raftkv/data/server2
     networks:
       - default

@@ -26,7 +26,7 @@ var (
 	grpcgwAddr string
 
 	// options
-	dir      string
+	dataDir  string
 	joinAddr string
 	loglevel int
 	maxPool  int
@@ -42,7 +42,7 @@ func init() {
 	flag.StringVar(&grpcgwAddr, "grpcgw-addr", os.Getenv("GRPC_GATEWAY_ADDR"), "an address raft gRPC-Gateway server listens to")
 
 	// Optional values
-	flag.StringVar(&dir, "dir", os.Getenv("SNAPSHOT_STORE_DIR"), "a directory for a snapshot store")
+	flag.StringVar(&dataDir, "data-dir", os.Getenv("DATA_DIR"), "path to a data directory to store raftkv state")
 	flag.StringVar(&joinAddr, "join-addr", os.Getenv("JOIN_ADDR"), "an address to send a join request")
 	flag.IntVar(&maxPool, "maxpool", getEnvInt("MAXPOOL", 3), "how many connections we will pool")
 	flag.IntVar(&retain, "retain", getEnvInt("RETAIN", 2), "how many snapshots are retained")
@@ -67,7 +67,7 @@ func init() {
 		}
 	}
 
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		l.Warn("exit due to a failure of making a directory for a file snapshot store", "error", err)
 		os.Exit(1)
 	}
@@ -83,7 +83,7 @@ func main() {
 
 	s := fsm.NewServer(
 		serverId,
-		dir,
+		dataDir,
 		advertise,
 		l,
 		fsm.WithMaxPool(maxPool),
