@@ -13,12 +13,9 @@ import (
 )
 
 func setupStore(ctx context.Context, serverId, addr string, isSingle bool) (*Store, error) {
-	inmemstore := raft.NewInmemStore()
-	newStableStore = func(path string) (raft.StableStore, error) {
-		return inmemstore, nil
-	}
-	newLogStore = func(store raft.LogStore) (raft.LogStore, error) {
-		return inmemstore, nil
+	newStore = func(path string) (raft.StableStore, raft.LogStore, error) {
+		s := raft.NewInmemStore()
+		return s, s, nil
 	}
 	dir := filepath.Join("raftkv.d", serverId)
 	_ = os.RemoveAll(dir)

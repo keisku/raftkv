@@ -68,13 +68,9 @@ func (s *Store) Open(ctx context.Context, bootstrap bool) error {
 	config.LocalID = s.serverId
 	config.Logger = s.logger
 
-	stableStore, err := newStableStore(filepath.Join(s.dir, "raft.db"))
+	stableStore, logStore, err := newStore(filepath.Join(s.dir, "raft.db"))
 	if err != nil {
-		return fmt.Errorf("failed to create a stable store: %w", err)
-	}
-	logStore, err := newLogStore(stableStore.(raft.LogStore))
-	if err != nil {
-		return fmt.Errorf("failed to create a log store: %w", err)
+		return fmt.Errorf("failed to create a store: %w", err)
 	}
 
 	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, tp)
@@ -102,11 +98,16 @@ func (s *Store) Open(ctx context.Context, bootstrap bool) error {
 }
 
 // This function is for unit tests.
-var newStableStore = func(path string) (raft.StableStore, error) {
-	return raftboltdb.NewBoltStore(path)
-}
-var newLogStore = func(store raft.LogStore) (raft.LogStore, error) {
-	return raft.NewLogCache(512, store)
+var newStore = func(path string) (raft.StableStore, raft.LogStore, error) {
+	s, err := raftboltdb.NewBoltStore(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	ls, err := raft.NewLogCache(512, s)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s, ls, nil
 }
 
 var (
