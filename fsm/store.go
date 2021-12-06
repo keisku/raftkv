@@ -66,6 +66,7 @@ func (s *Store) Open(ctx context.Context, bootstrap bool) error {
 
 	config := raft.DefaultConfig()
 	config.LocalID = s.serverId
+	config.Logger = s.logger
 
 	stableStore, err := newStableStore(filepath.Join(s.dir, "raft.db"))
 	if err != nil {
