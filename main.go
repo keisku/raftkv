@@ -21,7 +21,7 @@ var (
 
 	// required
 	serverId   string
-	raftAddr   string
+	advertise  string
 	grpcAddr   string
 	grpcgwAddr string
 
@@ -37,7 +37,7 @@ var (
 func init() {
 	// Required values
 	flag.StringVar(&serverId, "server-id", os.Getenv("SERVER_ID"), "a unique ID for this server across all time")
-	flag.StringVar(&raftAddr, "raft-addr", os.Getenv("RAFT_ADDR"), "an address raft binds")
+	flag.StringVar(&advertise, "advertise-addr", os.Getenv("ADVERTISE_ADDR"), "Sets the advertise address to use")
 	flag.StringVar(&grpcAddr, "grpc-addr", os.Getenv("GRPC_ADDR"), "an address raft gRPC server listens to")
 	flag.StringVar(&grpcgwAddr, "grpcgw-addr", os.Getenv("GRPC_GATEWAY_ADDR"), "an address raft gRPC-Gateway server listens to")
 
@@ -57,7 +57,7 @@ func init() {
 
 	for k, v := range map[string]string{
 		"server id":         serverId,
-		"raft addr":         raftAddr,
+		"advertise addr":    advertise,
 		"grpc addr":         grpcAddr,
 		"grpc gateway addr": grpcgwAddr,
 	} {
@@ -84,7 +84,7 @@ func main() {
 	s := fsm.NewServer(
 		serverId,
 		dir,
-		raftAddr,
+		advertise,
 		l,
 		fsm.WithMaxPool(maxPool),
 		fsm.WithRetain(retain),
@@ -107,11 +107,11 @@ func main() {
 		op := func() error {
 			_, err = c.Join(ctx, &raftkvpb.JoinRequest{
 				ServerId: serverId,
-				Address:  raftAddr,
+				Address:  advertise,
 			})
 			return err
 		}
-		l.Info("new server is joining to a cluster", "server_id", serverId, "raft_addr", raftAddr)
+		l.Info("new server is joining to a cluster", "server_id", serverId, "raft_addr", advertise)
 		if err := backoff.Retry(op, backoff.NewExponentialBackOff()); err != nil {
 			l.Warn("new server failed to join a cluster", "error", err)
 			cancel()

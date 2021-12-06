@@ -17,39 +17,39 @@ import (
 
 // Server holds a key-value store and behaves as a FSM.
 type Server struct {
-	serverId raft.ServerID
-	dir      string
-	addr     string
-	kvstore  kvstore
-	mu       sync.Mutex
-	raft     *raft.Raft
-	logger   hclog.Logger
-	options  *Options
+	serverId  raft.ServerID
+	dir       string
+	advertise string
+	kvstore   kvstore
+	mu        sync.Mutex
+	raft      *raft.Raft
+	logger    hclog.Logger
+	options   *Options
 }
 
 // NewServer initializes a server.
-func NewServer(serverId, dir, addr string, l hclog.Logger, opt ...Option) *Server {
+func NewServer(serverId, dir, advertise string, l hclog.Logger, opt ...Option) *Server {
 	opts := newOptions(opt...)
 	return &Server{
-		serverId: raft.ServerID(serverId),
-		dir:      dir,
-		addr:     addr,
-		kvstore:  make(kvstore),
-		logger:   l,
-		options:  opts,
+		serverId:  raft.ServerID(serverId),
+		dir:       dir,
+		advertise: advertise,
+		kvstore:   make(kvstore),
+		logger:    l,
+		options:   opts,
 	}
 }
 
 // Run runs the server. If `bootstrap` is true, and there are no existing peers,
 // then this server becomes the first server, and therefore leader of the cluster.
 func (s *Server) Run(ctx context.Context, bootstrap bool) error {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", s.addr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", s.advertise)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
 	}
 
 	tp, err := raft.NewTCPTransport(
-		s.addr,
+		s.advertise,
 		tcpAddr,
 		s.options.maxPool,
 		s.options.timeout,
@@ -166,38 +166,38 @@ func (s *Server) Delete(key string) error {
 	return nil
 }
 
-// Join register a server to a cluster, identified by serverId and located at addr, to this server.
+// Join register a server to a cluster, identified by serverId and located at advertise, to this server.
 // The server must be ready to respond to Raft communications at that address.
-func (s *Server) Join(serverId, addr string) error {
+func (s *Server) Join(serverId, advertise string) error {
 	confFuture := s.raft.GetConfiguration()
 	if err := confFuture.Error(); err != nil {
 		return fmt.Errorf("failed to proceed a join request: %w", err)
 	}
 
 	for _, srv := range confFuture.Configuration().Servers {
-		if isSameServer(srv, serverId, addr) {
-			s.logger.Info(fmt.Sprintf("server %s at %s has already been a member of a cluster", serverId, addr))
+		if isSameServer(srv, serverId, advertise) {
+			s.logger.Info(fmt.Sprintf("server %s at %s has already been a member of a cluster", serverId, advertise))
 			return nil
 		}
 		// If a server already exists with either the joining server's ID or address,
 		// that server may need to be removed from the config first.
-		if isServerExist(srv, serverId, addr) {
+		if isServerExist(srv, serverId, advertise) {
 			if err := s.raft.RemoveServer(srv.ID, 0, 0).Error(); err != nil {
-				return fmt.Errorf("failed to remove an existing server %s at %s: %w", serverId, addr, err)
+				return fmt.Errorf("failed to remove an existing server %s at %s: %w", serverId, advertise, err)
 			}
 		}
 	}
 
-	if err := s.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0).Error(); err != nil {
+	if err := s.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(advertise), 0, 0).Error(); err != nil {
 		return fmt.Errorf("failed to add the given server to the cluster as a staging server: %w", err)
 	}
 	return nil
 }
 
-func isServerExist(s raft.Server, serverId, addr string) bool {
-	return s.ID == raft.ServerID(serverId) || s.Address == raft.ServerAddress(addr)
+func isServerExist(s raft.Server, serverId, advertise string) bool {
+	return s.ID == raft.ServerID(serverId) || s.Address == raft.ServerAddress(advertise)
 }
 
-func isSameServer(s raft.Server, serverId, addr string) bool {
-	return s.ID == raft.ServerID(serverId) && s.Address == raft.ServerAddress(addr)
+func isSameServer(s raft.Server, serverId, advertise string) bool {
+	return s.ID == raft.ServerID(serverId) && s.Address == raft.ServerAddress(advertise)
 }

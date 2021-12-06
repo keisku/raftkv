@@ -8,7 +8,7 @@ services:
       - 50002:50002
     environment:
       SERVER_ID: server0
-      RAFT_ADDR: server0:50000
+      ADVERTISE_ADDR: server0:50000
       GRPC_ADDR: :50001
       GRPC_GATEWAY_ADDR: :50002
       SNAPSHOT_STORE_DIR: /raftkv/data/server0
@@ -21,7 +21,7 @@ services:
       - 50102:50102
     environment:
       SERVER_ID: server1
-      RAFT_ADDR: server1:50100
+      ADVERTISE_ADDR: server1:50100
       JOIN_ADDR: server0:50001
       GRPC_ADDR: :50101
       GRPC_GATEWAY_ADDR: :50102
@@ -35,7 +35,7 @@ services:
       - 50202:50202
     environment:
       SERVER_ID: server2
-      RAFT_ADDR: server2:50200
+      ADVERTISE_ADDR: server2:50200
       JOIN_ADDR: server0:50001
       GRPC_ADDR: :50201
       GRPC_GATEWAY_ADDR: :50202
