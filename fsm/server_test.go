@@ -13,7 +13,7 @@ import (
 )
 
 func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Server, error) {
-	newStore = func(path string) (raft.StableStore, raft.LogStore, error) {
+	newStore = func(_ context.Context, path string) (raft.StableStore, raft.LogStore, error) {
 		s := raft.NewInmemStore()
 		return s, s, nil
 	}

@@ -68,7 +68,7 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 	config.LocalID = s.serverId
 	config.Logger = s.logger
 
-	stableStore, logStore, err := newStore(filepath.Join(s.dataDir, "raft.db"))
+	stableStore, logStore, err := newStore(ctx, filepath.Join(s.dataDir, "raft.db"))
 	if err != nil {
 		return fmt.Errorf("failed to create a store: %w", err)
 	}
@@ -98,7 +98,7 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 }
 
 // This function is for unit tests.
-var newStore = func(path string) (raft.StableStore, raft.LogStore, error) {
+var newStore = func(ctx context.Context, path string) (raft.StableStore, raft.LogStore, error) {
 	s, err := raftboltdb.NewBoltStore(path)
 	if err != nil {
 		return nil, nil, err
@@ -107,6 +107,10 @@ var newStore = func(path string) (raft.StableStore, raft.LogStore, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	go func() {
+		<-ctx.Done()
+		_ = s.Close()
+	}()
 	return s, ls, nil
 }
 
