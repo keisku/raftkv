@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-var _ raft.FSM = (*Store)(nil)
+var _ raft.FSM = (*Server)(nil)
 
 type command struct {
 	Op    Op     `json:"op,omitempty"`
@@ -23,7 +23,7 @@ const (
 	DeleteOp Op = "delete"
 )
 
-func (s *Store) Apply(rl *raft.Log) interface{} {
+func (s *Server) Apply(rl *raft.Log) interface{} {
 	var c command
 	if err := json.Unmarshal(rl.Data, &c); err != nil {
 		s.logger.Warn("failed to parse data of raft log into command", "error", err)
@@ -40,27 +40,27 @@ func (s *Store) Apply(rl *raft.Log) interface{} {
 	}
 }
 
-func (s *Store) applySetCommand(key, value string) interface{} {
+func (s *Server) applySetCommand(key, value string) interface{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.kvstore[key] = value
 	return nil
 }
 
-func (s *Store) applyDeleteCommand(key string) interface{} {
+func (s *Server) applyDeleteCommand(key string) interface{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.kvstore, key)
 	return nil
 }
 
-func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
+func (s *Server) Snapshot() (raft.FSMSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.kvstore.clone(), nil
 }
 
-func (s *Store) Restore(rc io.ReadCloser) error {
+func (s *Server) Restore(rc io.ReadCloser) error {
 	kvs := make(kvstore)
 	if err := json.NewDecoder(rc).Decode(&kvs); err != nil {
 		return fmt.Errorf("failed to restore a FSM from a snapshot")

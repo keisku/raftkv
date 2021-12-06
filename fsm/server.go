@@ -15,8 +15,8 @@ import (
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 )
 
-// Store is a key-value store and behaves as a FSM.
-type Store struct {
+// Server holds a key-value store and behaves as a FSM.
+type Server struct {
 	serverId raft.ServerID
 	dir      string
 	addr     string
@@ -27,10 +27,10 @@ type Store struct {
 	options  *Options
 }
 
-// NewStore initializes a store.
-func NewStore(serverId, dir, addr string, l hclog.Logger, opt ...Option) *Store {
+// NewServer initializes a server.
+func NewServer(serverId, dir, addr string, l hclog.Logger, opt ...Option) *Server {
 	opts := newOptions(opt...)
-	return &Store{
+	return &Server{
 		serverId: raft.ServerID(serverId),
 		dir:      dir,
 		addr:     addr,
@@ -40,9 +40,9 @@ func NewStore(serverId, dir, addr string, l hclog.Logger, opt ...Option) *Store 
 	}
 }
 
-// Open opens the store. If `bootstrap` is true, and there are no existing peers,
+// Run runs the server. If `bootstrap` is true, and there are no existing peers,
 // then this server becomes the first server, and therefore leader of the cluster.
-func (s *Store) Open(ctx context.Context, bootstrap bool) error {
+func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
@@ -68,12 +68,12 @@ func (s *Store) Open(ctx context.Context, bootstrap bool) error {
 	config.LocalID = s.serverId
 	config.Logger = s.logger
 
-	stableStore, logStore, err := newStore(filepath.Join(s.dir, "raft.db"))
+	stableServer, logServer, err := newStore(filepath.Join(s.dir, "raft.db"))
 	if err != nil {
 		return fmt.Errorf("failed to create a store: %w", err)
 	}
 
-	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, tp)
+	s.raft, err = raft.NewRaft(config, s, logServer, stableServer, ss, tp)
 	if err != nil {
 		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
@@ -115,7 +115,7 @@ var (
 	ErrEmptyKey = errors.New("an empty key")
 )
 
-func (s *Store) Get(key string) (string, error) {
+func (s *Server) Get(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, ok := s.kvstore[key]
@@ -125,7 +125,7 @@ func (s *Store) Get(key string) (string, error) {
 	return v, nil
 }
 
-func (s *Store) Set(key, value string) error {
+func (s *Server) Set(key, value string) error {
 	if key == "" {
 		return ErrEmptyKey
 	}
@@ -146,7 +146,7 @@ func (s *Store) Set(key, value string) error {
 	return nil
 }
 
-func (s *Store) Delete(key string) error {
+func (s *Server) Delete(key string) error {
 	if key == "" {
 		return ErrEmptyKey
 	}
@@ -166,9 +166,9 @@ func (s *Store) Delete(key string) error {
 	return nil
 }
 
-// Join joins a server, identified by serverId and located at addr, to this store.
+// Join register a server to a cluster, identified by serverId and located at addr, to this server.
 // The server must be ready to respond to Raft communications at that address.
-func (s *Store) Join(serverId, addr string) error {
+func (s *Server) Join(serverId, addr string) error {
 	confFuture := s.raft.GetConfiguration()
 	if err := confFuture.Error(); err != nil {
 		return fmt.Errorf("failed to proceed a join request: %w", err)

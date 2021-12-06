@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupStore(ctx context.Context, serverId, addr string, isSingle bool) (*Store, error) {
+func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Server, error) {
 	newStore = func(path string) (raft.StableStore, raft.LogStore, error) {
 		s := raft.NewInmemStore()
 		return s, s, nil
@@ -24,8 +24,8 @@ func setupStore(ctx context.Context, serverId, addr string, isSingle bool) (*Sto
 		<-ctx.Done()
 		_ = os.RemoveAll(dir)
 	}()
-	s := NewStore(serverId, dir, addr, hclog.New(hclog.DefaultOptions))
-	if err := s.Open(ctx, isSingle); err != nil {
+	s := NewServer(serverId, dir, addr, hclog.New(hclog.DefaultOptions))
+	if err := s.Run(ctx, isSingle); err != nil {
 		return nil, err
 	}
 	if isSingle {
@@ -43,7 +43,7 @@ func TestSingleStoreAllOps(t *testing.T) {
 	defer cancel()
 
 	// Create a leader store and bootstrap a cluster.
-	s, err := setupStore(ctx, "leader", "localhost:50000", true)
+	s, err := setupServer(ctx, "leader", "localhost:50000", true)
 	assert.Nil(t, err)
 	time.Sleep(3 * time.Second) // wait for a server ready.
 

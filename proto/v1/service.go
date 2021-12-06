@@ -14,13 +14,13 @@ import (
 var _ RaftkvServiceServer = (*raftkvService)(nil)
 
 type raftkvService struct {
-	store *fsm.Store
+	fsm *fsm.Server
 }
 
-func newRaftkvService(s *fsm.Store) *raftkvService { return &raftkvService{store: s} }
+func newRaftkvService(s *fsm.Server) *raftkvService { return &raftkvService{fsm: s} }
 
 func (s *raftkvService) Get(_ context.Context, req *GetRequest) (*wrapperspb.StringValue, error) {
-	v, err := s.store.Get(req.GetKey())
+	v, err := s.fsm.Get(req.GetKey())
 	if err != nil {
 		if errors.Is(err, fsm.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -31,7 +31,7 @@ func (s *raftkvService) Get(_ context.Context, req *GetRequest) (*wrapperspb.Str
 }
 
 func (s *raftkvService) Set(_ context.Context, req *SetRequest) (*emptypb.Empty, error) {
-	if err := s.store.Set(req.GetKey(), req.GetValue()); err != nil {
+	if err := s.fsm.Set(req.GetKey(), req.GetValue()); err != nil {
 		if errors.Is(err, fsm.ErrEmptyKey) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
@@ -41,7 +41,7 @@ func (s *raftkvService) Set(_ context.Context, req *SetRequest) (*emptypb.Empty,
 }
 
 func (s *raftkvService) Delete(_ context.Context, req *DeleteRequest) (*emptypb.Empty, error) {
-	if err := s.store.Delete(req.GetKey()); err != nil {
+	if err := s.fsm.Delete(req.GetKey()); err != nil {
 		if errors.Is(err, fsm.ErrEmptyKey) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
@@ -51,7 +51,7 @@ func (s *raftkvService) Delete(_ context.Context, req *DeleteRequest) (*emptypb.
 }
 
 func (s *raftkvService) Join(_ context.Context, req *JoinRequest) (*emptypb.Empty, error) {
-	if err := s.store.Join(req.GetServerId(), req.GetAddress()); err != nil {
+	if err := s.fsm.Join(req.GetServerId(), req.GetAddress()); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &emptypb.Empty{}, nil

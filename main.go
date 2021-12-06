@@ -81,7 +81,7 @@ func main() {
 		cancel()
 	}()
 
-	s := fsm.NewStore(
+	s := fsm.NewServer(
 		serverId,
 		dir,
 		raftAddr,
@@ -91,7 +91,7 @@ func main() {
 		fsm.WithTimeoutSecond(timeout),
 	)
 
-	if err := s.Open(ctx, joinAddr == ""); err != nil {
+	if err := s.Run(ctx, joinAddr == ""); err != nil {
 		l.Warn("exit since  a store failed to be opened", "error", err)
 		os.Exit(1)
 	}

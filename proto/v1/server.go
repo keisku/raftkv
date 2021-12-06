@@ -19,7 +19,7 @@ type Server struct {
 	gRPCGWServer   *http.Server
 }
 
-func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger, store *fsm.Store) (*Server, error) {
+func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger, store *fsm.Server) (*Server, error) {
 	grpcServer := newgRPCServer(store, l)
 	httpServer, conn, err := newgRPCGWServer(ctx, gRPCAddr, gRPCGWAddr)
 	if err != nil {
@@ -33,13 +33,13 @@ func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger,
 	}, nil
 }
 
-func newgRPCServer(store *fsm.Store, l hclog.Logger) *grpc.Server {
+func newgRPCServer(server *fsm.Server, l hclog.Logger) *grpc.Server {
 	grpcserver := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			hclogUnaryInterceptor(l),
 		),
 	)
-	RegisterRaftkvServiceServer(grpcserver, newRaftkvService(store))
+	RegisterRaftkvServiceServer(grpcserver, newRaftkvService(server))
 	return grpcserver
 }
 
