@@ -68,12 +68,12 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 	config.LocalID = s.serverId
 	config.Logger = s.logger
 
-	stableServer, logServer, err := newStore(filepath.Join(s.dataDir, "raft.db"))
+	stableStore, logStore, err := newStore(filepath.Join(s.dataDir, "raft.db"))
 	if err != nil {
 		return fmt.Errorf("failed to create a store: %w", err)
 	}
 
-	s.raft, err = raft.NewRaft(config, s, logServer, stableServer, ss, tp)
+	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, tp)
 	if err != nil {
 		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
