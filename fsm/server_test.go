@@ -8,24 +8,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/raft"
 	"github.com/stretchr/testify/assert"
 )
 
 func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Server, error) {
-	newStore = func(_ context.Context, path string) (raft.StableStore, raft.LogStore, error) {
-		s := raft.NewInmemStore()
-		return s, s, nil
-	}
 	dir := filepath.Join("raftkv.d", serverId)
 	_ = os.RemoveAll(dir)
 	_ = os.MkdirAll(dir, 0700)
-	go func() {
-		<-ctx.Done()
-		_ = os.RemoveAll(dir)
-	}()
-	s := NewServer(serverId, dir, addr, hclog.New(hclog.DefaultOptions))
-	if err := s.Run(ctx, isSingle); err != nil {
+	s := NewServer(serverId, dir, addr, hclog.New(hclog.DefaultOptions), WithInMemory())
+	if err := s.Run(isSingle); err != nil {
 		return nil, err
 	}
 	if isSingle {
@@ -35,6 +26,12 @@ func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Se
 	if err := s.Join(serverId, addr); err != nil {
 		return nil, err
 	}
+
+	go func() {
+		<-ctx.Done()
+		_ = os.RemoveAll(dir)
+		_ = s.Leave()
+	}()
 	return s, nil
 }
 

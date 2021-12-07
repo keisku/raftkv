@@ -91,7 +91,7 @@ func main() {
 		fsm.WithTimeoutSecond(timeout),
 	)
 
-	if err := s.Run(ctx, joinAddr == ""); err != nil {
+	if err := s.Run(joinAddr == ""); err != nil {
 		l.Warn("exit since  a store failed to be opened", "error", err)
 		os.Exit(1)
 	}
@@ -131,6 +131,7 @@ func main() {
 	}
 
 	<-ctx.Done()
+	_ = s.Leave()
 	server.Stop()
 }
 

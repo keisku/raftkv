@@ -1,7 +1,6 @@
 package fsm
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
@@ -17,14 +17,16 @@ import (
 
 // Server holds a key-value store and behaves as a FSM.
 type Server struct {
-	serverId  raft.ServerID
-	dataDir   string
-	advertise string
-	kvstore   kvstore
-	mu        sync.Mutex
-	raft      *raft.Raft
-	logger    hclog.Logger
-	options   *Options
+	serverId      raft.ServerID
+	dataDir       string
+	advertise     string
+	kvstore       kvstore
+	mu            sync.Mutex
+	raft          *raft.Raft
+	raftTransport *raft.NetworkTransport
+	raftStore     *raftboltdb.BoltStore
+	logger        hclog.Logger
+	options       *Options
 }
 
 // NewServer initializes a server.
@@ -42,13 +44,13 @@ func NewServer(serverId, dataDir, advertise string, l hclog.Logger, opt ...Optio
 
 // Run runs the server. If `bootstrap` is true, and there are no existing peers,
 // then this server becomes the first server, and therefore leader of the cluster.
-func (s *Server) Run(ctx context.Context, bootstrap bool) error {
+func (s *Server) Run(bootstrap bool) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.advertise)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
 	}
 
-	tp, err := raft.NewTCPTransport(
+	s.raftTransport, err = raft.NewTCPTransport(
 		s.advertise,
 		tcpAddr,
 		s.options.maxPool,
@@ -64,16 +66,29 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
+	var stableStore raft.StableStore
+	var logStore raft.LogStore
+	if s.options.useInMemoryStore {
+		s := raft.NewInmemStore()
+		stableStore = s
+		logStore = s
+	} else {
+		boltdb, err := raftboltdb.NewBoltStore(filepath.Join(s.dataDir, "raft.db"))
+		if err != nil {
+			return fmt.Errorf("failed to create a stable store: %w", err)
+		}
+		stableStore, s.raftStore = boltdb, boltdb
+		logStore, err = raft.NewLogCache(512, boltdb)
+		if err != nil {
+			return fmt.Errorf("failed to create a log store: %w", err)
+		}
+	}
+
 	config := raft.DefaultConfig()
 	config.LocalID = s.serverId
 	config.Logger = s.logger
 
-	stableStore, logStore, err := newStore(ctx, filepath.Join(s.dataDir, "raft.db"))
-	if err != nil {
-		return fmt.Errorf("failed to create a store: %w", err)
-	}
-
-	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, tp)
+	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, s.raftTransport)
 	if err != nil {
 		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
@@ -82,36 +97,90 @@ func (s *Server) Run(ctx context.Context, bootstrap bool) error {
 		s.logger.Info("bootstraping the cluster")
 		if err := s.raft.BootstrapCluster(raft.Configuration{Servers: []raft.Server{{
 			ID:      s.serverId,
-			Address: tp.LocalAddr(),
+			Address: s.raftTransport.LocalAddr(),
 		}}}).Error(); err != nil {
 			return fmt.Errorf("failed to bootstrap a cluster: %w", err)
 		}
 	}
 
-	go func() {
-		<-ctx.Done()
-		s.logger.Info("closing a tcp transport")
-		_ = tp.Close()
-	}()
-
 	return nil
 }
 
-// This function is for unit tests.
-var newStore = func(ctx context.Context, path string) (raft.StableStore, raft.LogStore, error) {
-	s, err := raftboltdb.NewBoltStore(path)
+// Leave is used to prepare for a graceful shutdown.
+func (s *Server) Leave() error {
+	s.logger.Info("server starting leave")
+
+	peersN, err := s.numVoters()
 	if err != nil {
-		return nil, nil, err
+		return fmt.Errorf("failed to get the number of peers: %w", err)
 	}
-	ls, err := raft.NewLogCache(512, s)
-	if err != nil {
-		return nil, nil, err
+
+	isLeader := s.isLeader()
+	if isLeader && 1 < peersN {
+		err := s.raft.LeadershipTransfer().Error()
+		if err == nil {
+			isLeader = false
+		} else {
+			s.logger.Error("failed to transfer leadership, removing the server", "error", err)
+			if err := s.raft.RemoveServer(s.serverId, 0, 0).Error(); err != nil {
+				s.logger.Error("failed to remove ourself as raft peer", "error", err)
+			}
+		}
 	}
-	go func() {
-		<-ctx.Done()
-		_ = s.Close()
-	}()
-	return s, ls, nil
+
+	if !isLeader {
+		left := false
+		limit := time.Now().Add(5 * time.Second)
+		for !left && time.Now().Before(limit) {
+			time.Sleep(50 * time.Millisecond)
+
+			future := s.raft.GetConfiguration()
+			if err := future.Error(); err != nil {
+				s.logger.Error("failed to get raft configuration", "error", err)
+				break
+			}
+
+			left = true
+			for _, server := range future.Configuration().Servers {
+				if server.Address == s.raftTransport.LocalAddr() {
+					left = false
+					break
+				}
+			}
+		}
+		if !left {
+			s.logger.Warn("failed to leave raft configuration gracefully, timeout")
+		}
+	}
+
+	s.logger.Info("closing raft transport")
+	if err := s.raftTransport.Close(); err != nil {
+		return fmt.Errorf("failed to close raft TCP transport: %w", err)
+	}
+	s.logger.Info("closing raft store")
+	if err := s.raftStore.Close(); err != nil {
+		return fmt.Errorf("failed to close raft store: %w", err)
+	}
+	return nil
+}
+
+func (s *Server) isLeader() bool {
+	return s.raft.State() == raft.Leader
+}
+
+func (s *Server) numVoters() (int, error) {
+	configFuture := s.raft.GetConfiguration()
+	if err := configFuture.Error(); err != nil {
+		return 0, fmt.Errorf("failed to get the number of voters: %w", err)
+	}
+	config := configFuture.Configuration()
+	var n int
+	for _, server := range config.Servers {
+		if server.Suffrage == raft.Voter {
+			n++
+		}
+	}
+	return n, nil
 }
 
 var (

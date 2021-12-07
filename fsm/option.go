@@ -11,12 +11,15 @@ type Options struct {
 	timeout time.Duration
 	// how many snapshots are retained.
 	retain int
+	// to use in-memory storage for Raft.
+	useInMemoryStore bool
 }
 
 func (o *Options) setDefault() {
 	o.maxPool = 3
 	o.retain = 2
 	o.timeout = 10 * time.Second
+	o.useInMemoryStore = false
 }
 
 type Option func(*Options)
@@ -64,5 +67,12 @@ func WithTimeoutSecond(t int) Option {
 	}
 	return func(o *Options) {
 		o.timeout = time.Duration(t) * time.Second
+	}
+}
+
+// WithInMemory sets a parameter to use in-memory storage for Raft.
+func WithInMemory() Option {
+	return func(o *Options) {
+		o.useInMemoryStore = true
 	}
 }
