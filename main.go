@@ -38,8 +38,8 @@ func init() {
 	// Required values
 	flag.StringVar(&serverId, "server-id", os.Getenv("SERVER_ID"), "a unique ID for this server across all time")
 	flag.StringVar(&advertise, "advertise-addr", os.Getenv("ADVERTISE_ADDR"), "Sets the advertise address to use")
-	flag.StringVar(&grpcAddr, "grpc-addr", os.Getenv("GRPC_ADDR"), "an address raft gRPC server listens to")
-	flag.StringVar(&grpcgwAddr, "grpcgw-addr", os.Getenv("GRPC_GATEWAY_ADDR"), "an address raft gRPC-Gateway server listens to")
+	flag.StringVar(&grpcAddr, "grpc-port", os.Getenv("GRPC_PORT"), "a port raft gRPC server listens to")
+	flag.StringVar(&grpcgwAddr, "grpcgw-port", os.Getenv("GRPC_GATEWAY_PORT"), "a port raft gRPC-Gateway server listens to")
 
 	// Optional values
 	flag.StringVar(&dataDir, "data-dir", os.Getenv("DATA_DIR"), "path to a data directory to store raftkv state")
@@ -58,14 +58,18 @@ func init() {
 	for k, v := range map[string]string{
 		"server id":         serverId,
 		"advertise addr":    advertise,
-		"grpc addr":         grpcAddr,
-		"grpc gateway addr": grpcgwAddr,
+		"grpc port":         grpcAddr,
+		"grpc gateway port": grpcgwAddr,
 	} {
 		if v == "" {
 			l.Warn(fmt.Sprintf("%s is required", k))
 			os.Exit(1)
 		}
 	}
+
+	// convert port to addr
+	grpcAddr = fmt.Sprintf(":%s", grpcAddr)
+	grpcgwAddr = fmt.Sprintf(":%s", grpcgwAddr)
 
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		l.Warn("exit due to a failure of making a directory for a file snapshot store", "error", err)

@@ -9,8 +9,8 @@ services:
     environment:
       SERVER_ID: server0
       ADVERTISE_ADDR: server0:50000
-      GRPC_ADDR: :50001
-      GRPC_GATEWAY_ADDR: :50002
+      GRPC_PORT: 50001
+      GRPC_GATEWAY_PORT: 50002
       DATA_DIR: /raftkv/data/server0
     networks:
       - default
@@ -23,8 +23,8 @@ services:
       SERVER_ID: server1
       ADVERTISE_ADDR: server1:50100
       JOIN_ADDR: server0:50001
-      GRPC_ADDR: :50101
-      GRPC_GATEWAY_ADDR: :50102
+      GRPC_PORT: 50101
+      GRPC_GATEWAY_PORT: 50102
       DATA_DIR: /raftkv/data/server1
     networks:
       - default
@@ -37,8 +37,8 @@ services:
       SERVER_ID: server2
       ADVERTISE_ADDR: server2:50200
       JOIN_ADDR: server0:50001
-      GRPC_ADDR: :50201
-      GRPC_GATEWAY_ADDR: :50202
+      GRPC_PORT: 50201
+      GRPC_GATEWAY_PORT: 50202
       DATA_DIR: /raftkv/data/server2
     networks:
       - default
