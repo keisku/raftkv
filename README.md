@@ -1,6 +1,6 @@
 # raftkv
 
-This repository holds a simple distributed key-value store by using [hashicorp/raft](https://github.com/hashicorp/raft).
+This repository holds a simple leader-followers key-value store by using [hashicorp/raft](https://github.com/hashicorp/raft).
 `raftkv` provides gRPC and HTTP APIs. Please take a look [API Reference](./proto/v1/README.md).
 
 ## Usage
