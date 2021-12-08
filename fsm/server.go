@@ -60,7 +60,7 @@ func (s *Server) Run() error {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
-	ss, err := raft.NewFileSnapshotStore(s.dataDir, s.options.retain, os.Stderr)
+	ss, err := raft.NewFileSnapshotStoreWithLogger(s.dataDir, s.options.retain, s.logger.Named("snapshot"))
 	if err != nil {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
