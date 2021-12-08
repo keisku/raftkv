@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -49,12 +48,12 @@ func (s *Server) Run() error {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
 	}
 
-	s.raftTransport, err = raft.NewTCPTransport(
+	s.raftTransport, err = raft.NewTCPTransportWithLogger(
 		s.advertise,
 		tcpAddr,
 		s.options.maxPool,
 		s.options.timeout,
-		os.Stderr,
+		s.logger.Named("raft"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
