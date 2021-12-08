@@ -115,8 +115,8 @@ func (s *Server) BootstrapCluster() error {
 	return nil
 }
 
-// Leave is used to prepare for a graceful shutdown.
-func (s *Server) Leave() error {
+// Shutdown is used to shutdown the server
+func (s *Server) Shutdown() error {
 	s.logger.Info("server starting leave")
 
 	peersN, err := s.numVoters()
@@ -166,10 +166,17 @@ func (s *Server) Leave() error {
 	if err := s.raftTransport.Close(); err != nil {
 		return fmt.Errorf("failed to close raft TCP transport: %w", err)
 	}
+
+	s.logger.Info("shutdown raft")
+	if err := s.raft.Shutdown().Error(); err != nil {
+		return fmt.Errorf("failed to shutdown raft store: %w", err)
+	}
+
 	s.logger.Info("closing raft store")
 	if err := s.raftStore.Close(); err != nil {
 		return fmt.Errorf("failed to close raft store: %w", err)
 	}
+
 	return nil
 }
 

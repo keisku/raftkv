@@ -141,7 +141,7 @@ func main() {
 	}
 
 	<-ctx.Done()
-	_ = s.Leave()
+	_ = s.Shutdown()
 	server.Stop()
 }
 

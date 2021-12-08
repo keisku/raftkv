@@ -30,7 +30,7 @@ func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Se
 	go func() {
 		<-ctx.Done()
 		_ = os.RemoveAll(dir)
-		_ = s.Leave()
+		_ = s.Shutdown()
 	}()
 	return s, nil
 }
