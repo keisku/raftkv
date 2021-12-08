@@ -84,7 +84,7 @@ func (s *Server) Run() error {
 
 	config := raft.DefaultConfig()
 	config.LocalID = s.serverId
-	config.Logger = s.logger
+	config.Logger = s.logger.Named("raft")
 
 	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, s.raftTransport)
 	if err != nil {
