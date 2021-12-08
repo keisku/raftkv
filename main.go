@@ -95,12 +95,18 @@ func main() {
 		fsm.WithTimeoutSecond(timeout),
 	)
 
-	if err := s.Run(joinAddr == ""); err != nil {
-		l.Warn("exit since  a store failed to be opened", "error", err)
+	if err := s.Run(); err != nil {
+		l.Warn("exit since a store failed to be opened", "error", err)
 		os.Exit(1)
 	}
 
-	if joinAddr != "" {
+	if joinAddr == "" {
+		l.Info("bootstraping a new cluster")
+		if err := s.BootstrapCluster(); err != nil {
+			l.Warn("exit since bootstraping a cluster failed", "error", err)
+			os.Exit(1)
+		}
+	} else {
 		conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure())
 		if err != nil {
 			l.Warn(fmt.Sprintf("failed to dial a gRPC server at %s", joinAddr), "error", err)

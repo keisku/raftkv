@@ -42,9 +42,8 @@ func NewServer(serverId, dataDir, advertise string, l hclog.Logger, opt ...Optio
 	}
 }
 
-// Run runs the server. If `bootstrap` is true, and there are no existing peers,
-// then this server becomes the first server, and therefore leader of the cluster.
-func (s *Server) Run(bootstrap bool) error {
+// Run runs a finite-state machine.
+func (s *Server) Run() error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", s.advertise)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
@@ -93,16 +92,26 @@ func (s *Server) Run(bootstrap bool) error {
 		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
 
-	if bootstrap {
-		s.logger.Info("bootstraping the cluster")
-		if err := s.raft.BootstrapCluster(raft.Configuration{Servers: []raft.Server{{
-			ID:      s.serverId,
-			Address: s.raftTransport.LocalAddr(),
-		}}}).Error(); err != nil {
-			return fmt.Errorf("failed to bootstrap a cluster: %w", err)
-		}
-	}
+	return nil
+}
 
+// BootstrapCluster bootstrap a new cluster.
+// There are no existing peers, then this server becomes the first server,
+// and therefore leader of the cluster.
+func (s *Server) BootstrapCluster() error {
+	n, err := s.numVoters()
+	if err != nil {
+		return fmt.Errorf("failed to get the number of peers: %w", err)
+	}
+	if 1 < n {
+		return fmt.Errorf("there are %d peers, cluster may be already constructed", n)
+	}
+	if err := s.raft.BootstrapCluster(raft.Configuration{Servers: []raft.Server{{
+		ID:      s.serverId,
+		Address: s.raftTransport.LocalAddr(),
+	}}}).Error(); err != nil {
+		return fmt.Errorf("failed to bootstrap a cluster: %w", err)
+	}
 	return nil
 }
 

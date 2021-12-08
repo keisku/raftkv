@@ -16,11 +16,11 @@ func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Se
 	_ = os.RemoveAll(dir)
 	_ = os.MkdirAll(dir, 0700)
 	s := NewServer(serverId, dir, addr, hclog.New(hclog.DefaultOptions), WithInMemory())
-	if err := s.Run(isSingle); err != nil {
+	if err := s.Run(); err != nil {
 		return nil, err
 	}
 	if isSingle {
-		return s, nil
+		return s, s.BootstrapCluster()
 	}
 
 	if err := s.Join(serverId, addr); err != nil {
