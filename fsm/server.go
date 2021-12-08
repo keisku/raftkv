@@ -116,7 +116,7 @@ func (s *Server) BootstrapCluster() error {
 
 // Shutdown is used to shutdown the server
 func (s *Server) Shutdown() error {
-	s.logger.Info("server starting leave")
+	s.logger.Info("server starting shutdown")
 
 	peersN, err := s.numVoters()
 	if err != nil {
