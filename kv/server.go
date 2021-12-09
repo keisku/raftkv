@@ -1,4 +1,4 @@
-package fsm
+package kv
 
 import (
 	"encoding/json"
@@ -6,87 +6,82 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
-	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+	raftboltdb "github.com/hashicorp/raft-boltdb"
+	"github.com/kei6u/raftkv/config"
 )
 
-// Server holds a key-value store and behaves as a FSM.
+var retain = 2
+var logCacheCap = 512
+var raftTimeout = 10 * time.Second
+
+// Server behaves a Raft server.
 type Server struct {
-	serverId      raft.ServerID
-	dataDir       string
-	advertise     string
-	kvstore       kvstore
-	mu            sync.Mutex
+	config        *config.Values
+	store         *Store
 	raft          *raft.Raft
 	raftTransport *raft.NetworkTransport
 	raftStore     *raftboltdb.BoltStore
 	logger        hclog.Logger
-	options       *Options
 }
 
-// NewServer initializes a server.
-func NewServer(serverId, dataDir, advertise string, l hclog.Logger, opt ...Option) *Server {
-	opts := newOptions(opt...)
+func NewServer(store *Store, l hclog.Logger, config *config.Values) *Server {
 	return &Server{
-		serverId:  raft.ServerID(serverId),
-		dataDir:   dataDir,
-		advertise: advertise,
-		kvstore:   make(kvstore),
-		logger:    l,
-		options:   opts,
+		config: config,
+		store:  store,
+		logger: l,
 	}
 }
 
-// Run runs a finite-state machine.
-func (s *Server) Run() error {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", s.advertise)
+// Start runs a finite-state machine.
+func (s *Server) Start() error {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", s.config.AdvertiseAddr)
 	if err != nil {
 		return fmt.Errorf("failed to resolve a TCP address: %w", err)
 	}
 
 	s.raftTransport, err = raft.NewTCPTransportWithLogger(
-		s.advertise,
+		s.config.AdvertiseAddr,
 		tcpAddr,
-		s.options.maxPool,
-		s.options.timeout,
+		s.config.MaxPool,
+		raftTimeout,
 		s.logger.Named("raft"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
-	ss, err := raft.NewFileSnapshotStoreWithLogger(s.dataDir, s.options.retain, s.logger.Named("snapshot"))
+	ss, err := raft.NewFileSnapshotStoreWithLogger(s.config.DataDir, retain, s.logger.Named("snapshot"))
 	if err != nil {
 		return fmt.Errorf("failed to build a new TCP transport: %w", err)
 	}
 
 	var stableStore raft.StableStore
 	var logStore raft.LogStore
-	if s.options.useInMemoryStore {
+	if s.config.InMemory {
 		s := raft.NewInmemStore()
 		stableStore = s
 		logStore = s
 	} else {
-		boltdb, err := raftboltdb.NewBoltStore(filepath.Join(s.dataDir, "raft.db"))
+		boltdb, err := raftboltdb.NewBoltStore(filepath.Join(s.config.DataDir, "raft.db"))
 		if err != nil {
 			return fmt.Errorf("failed to create a stable store: %w", err)
 		}
 		stableStore, s.raftStore = boltdb, boltdb
-		logStore, err = raft.NewLogCache(512, boltdb)
+		logStore, err = raft.NewLogCache(logCacheCap, boltdb)
 		if err != nil {
 			return fmt.Errorf("failed to create a log store: %w", err)
 		}
 	}
 
 	config := raft.DefaultConfig()
-	config.LocalID = s.serverId
+	config.LocalID = raft.ServerID(s.config.ServerId)
 	config.Logger = s.logger.Named("raft")
 
-	s.raft, err = raft.NewRaft(config, s, logStore, stableStore, ss, s.raftTransport)
+	s.raft, err = raft.NewRaft(config, s.store, logStore, stableStore, ss, s.raftTransport)
 	if err != nil {
 		return fmt.Errorf("failed to construct a new Raft server: %w", err)
 	}
@@ -106,7 +101,7 @@ func (s *Server) BootstrapCluster() error {
 		return fmt.Errorf("there are %d peers, cluster may be already constructed", n)
 	}
 	if err := s.raft.BootstrapCluster(raft.Configuration{Servers: []raft.Server{{
-		ID:      s.serverId,
+		ID:      raft.ServerID(s.config.ServerId),
 		Address: s.raftTransport.LocalAddr(),
 	}}}).Error(); err != nil {
 		return fmt.Errorf("failed to bootstrap a cluster: %w", err)
@@ -130,7 +125,7 @@ func (s *Server) Shutdown() error {
 			isLeader = false
 		} else {
 			s.logger.Error("failed to transfer leadership, removing the server", "error", err)
-			if err := s.raft.RemoveServer(s.serverId, 0, 0).Error(); err != nil {
+			if err := s.raft.RemoveServer(raft.ServerID(s.config.ServerId), 0, 0).Error(); err != nil {
 				s.logger.Error("failed to remove ourself as raft peer", "error", err)
 			}
 		}
@@ -198,57 +193,48 @@ func (s *Server) numVoters() (int, error) {
 	return n, nil
 }
 
-var (
-	ErrNotFound = errors.New("not found")
-	ErrEmptyKey = errors.New("an empty key")
-)
-
-func (s *Server) Get(key string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	v, ok := s.kvstore[key]
-	if !ok {
-		return "", ErrNotFound
-	}
-	return v, nil
+func (s *Server) ApplyGetOp(key string) (string, error) {
+	return s.store.Get(key)
 }
 
-func (s *Server) Set(key, value string) error {
+var ErrEmptyKey = errors.New("an empty key")
+
+func (s *Server) ApplySetOp(key, value string) error {
 	if key == "" {
 		return ErrEmptyKey
 	}
 	if s.raft.State() != raft.Leader {
 		return fmt.Errorf("non-leader can't set key=%s, value=%s", key, value)
 	}
-	b, err := json.Marshal(&command{
+	b, err := json.Marshal(&Command{
 		Op:    SetOp,
 		Key:   key,
 		Value: value,
 	})
 	if err != nil {
-		return fmt.Errorf("[leader] failed to create a set command: %w", err)
+		return fmt.Errorf("failed to create a set command: %w", err)
 	}
-	if err := s.raft.Apply(b, s.options.timeout).Error(); err != nil {
-		return fmt.Errorf("[leader] failed to apply a set command: %w", err)
+	if err := s.raft.Apply(b, 10*time.Second).Error(); err != nil {
+		return fmt.Errorf("failed to apply a set command: %w", err)
 	}
 	return nil
 }
 
-func (s *Server) Delete(key string) error {
+func (s *Server) ApplyDeleteOp(key string) error {
 	if key == "" {
 		return ErrEmptyKey
 	}
 	if s.raft.State() != raft.Leader {
 		return fmt.Errorf("non-leader can't delete a value associated to %s", key)
 	}
-	b, err := json.Marshal(&command{
+	b, err := json.Marshal(&Command{
 		Op:  DeleteOp,
 		Key: key,
 	})
 	if err != nil {
 		return fmt.Errorf("[leader] failed to create a delete command: %w", err)
 	}
-	if err := s.raft.Apply(b, s.options.timeout).Error(); err != nil {
+	if err := s.raft.Apply(b, raftTimeout).Error(); err != nil {
 		return fmt.Errorf("[leader] failed to apply a delete command: %w", err)
 	}
 	return nil

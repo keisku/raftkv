@@ -1,4 +1,4 @@
-package fsm
+package kv
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/kei6u/raftkv/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,8 +16,13 @@ func setupServer(ctx context.Context, serverId, addr string, isSingle bool) (*Se
 	dir := filepath.Join("raftkv.d", serverId)
 	_ = os.RemoveAll(dir)
 	_ = os.MkdirAll(dir, 0700)
-	s := NewServer(serverId, dir, addr, hclog.New(hclog.DefaultOptions), WithInMemory())
-	if err := s.Run(); err != nil {
+	l := hclog.New(hclog.DefaultOptions)
+	s := NewServer(NewStore(l), l, &config.Values{
+		ServerId:      serverId,
+		AdvertiseAddr: addr,
+		InMemory:      isSingle,
+	})
+	if err := s.Start(); err != nil {
 		return nil, err
 	}
 	if isSingle {
@@ -45,19 +51,19 @@ func TestSingleStoreAllOps(t *testing.T) {
 	time.Sleep(3 * time.Second) // wait for a server ready.
 
 	// Set an empty key.
-	assert.Error(t, ErrEmptyKey, s.Set("", "value"))
+	assert.Error(t, ErrEmptyKey, s.ApplySetOp("", "value"))
 
 	// Set a key-value.
-	assert.Nil(t, s.Set("key", "value"))
+	assert.Nil(t, s.ApplySetOp("key", "value"))
 
-	v, err := s.Get("key")
+	v, err := s.ApplyGetOp("key")
 	assert.Nil(t, err)
 	assert.Equal(t, "value", v)
 
 	// Delete a key-value.
-	assert.Nil(t, s.Delete("key"))
+	assert.Nil(t, s.ApplyDeleteOp("key"))
 
 	// Ensure a key-value is deleted.
-	v, err = s.Get("key")
+	v, err = s.ApplyGetOp("key")
 	assert.Equal(t, ErrNotFound, err)
 }

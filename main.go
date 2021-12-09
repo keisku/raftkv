@@ -2,77 +2,37 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-hclog"
-	"github.com/kei6u/raftkv/fsm"
+	"github.com/kei6u/raftkv/config"
+	"github.com/kei6u/raftkv/kv"
 	raftkvpb "github.com/kei6u/raftkv/proto/v1"
 	"google.golang.org/grpc"
 )
 
 var (
-	l hclog.Logger
-
-	// required
-	serverId   string
-	advertise  string
-	grpcAddr   string
-	grpcgwAddr string
-
-	// options
-	dataDir  string
-	joinAddr string
-	loglevel int
-	maxPool  int
-	retain   int
-	timeout  int
+	l    hclog.Logger
+	conf = &config.Values{}
 )
 
 func init() {
-	// Required values
-	flag.StringVar(&serverId, "server-id", os.Getenv("SERVER_ID"), "a unique ID for this server across all time")
-	flag.StringVar(&advertise, "advertise-addr", os.Getenv("ADVERTISE_ADDR"), "Sets the advertise address to use")
-	flag.StringVar(&grpcAddr, "grpc-port", os.Getenv("GRPC_PORT"), "a port raft gRPC server listens to")
-	flag.StringVar(&grpcgwAddr, "grpcgw-port", os.Getenv("GRPC_GATEWAY_PORT"), "a port raft gRPC-Gateway server listens to")
-
-	// Optional values
-	flag.StringVar(&dataDir, "data-dir", os.Getenv("DATA_DIR"), "path to a data directory to store raftkv state")
-	flag.StringVar(&joinAddr, "join-addr", os.Getenv("JOIN_ADDR"), "an address to send a join request")
-	flag.IntVar(&maxPool, "maxpool", getEnvInt("MAXPOOL", 3), "how many connections we will pool")
-	flag.IntVar(&retain, "retain", getEnvInt("RETAIN", 2), "how many snapshots are retained")
-	flag.IntVar(&timeout, "timeout", getEnvInt("TIMEOUT_SECOND", 10), "the amount of time we wait for the command to be started")
-	flag.IntVar(&loglevel, "log-level", getEnvInt("LOG_LEVEL", 3), "")
-
-	flag.Parse()
-
 	// setup a logger
-	hclog.DefaultOptions.Level = hclog.Level(loglevel)
 	l = hclog.New(hclog.DefaultOptions)
 
-	for k, v := range map[string]string{
-		"server id":         serverId,
-		"advertise addr":    advertise,
-		"grpc port":         grpcAddr,
-		"grpc gateway port": grpcgwAddr,
-	} {
-		if v == "" {
-			l.Warn(fmt.Sprintf("%s is required", k))
-			os.Exit(1)
-		}
+	if err := conf.LoadConfig(); err != nil {
+		l.Warn("exit since loading environment variables failed", "error", err)
+		os.Exit(1)
 	}
 
-	// convert port to addr
-	grpcAddr = fmt.Sprintf(":%s", grpcAddr)
-	grpcgwAddr = fmt.Sprintf(":%s", grpcgwAddr)
+	l.SetLevel(hclog.Level(conf.LogLevel))
 
-	if err := os.MkdirAll(dataDir, 0700); err != nil {
-		l.Warn("exit due to a failure of making a directory for a file snapshot store", "error", err)
+	if err := os.MkdirAll(conf.DataDir, 0700); err != nil {
+		l.Warn("exit since making a directory for a file snapshot store failed", "error", err)
 		os.Exit(1)
 	}
 }
@@ -85,43 +45,36 @@ func main() {
 		cancel()
 	}()
 
-	s := fsm.NewServer(
-		serverId,
-		dataDir,
-		advertise,
-		l,
-		fsm.WithMaxPool(maxPool),
-		fsm.WithRetain(retain),
-		fsm.WithTimeoutSecond(timeout),
-	)
+	store := kv.NewStore(l)
+	kvserver := kv.NewServer(store, l, conf)
 
-	if err := s.Run(); err != nil {
+	if err := kvserver.Start(); err != nil {
 		l.Warn("exit since a store failed to be opened", "error", err)
 		os.Exit(1)
 	}
 
-	if joinAddr == "" {
+	if conf.JoinAddr == "" {
 		l.Info("bootstraping a new cluster")
-		if err := s.BootstrapCluster(); err != nil {
+		if err := kvserver.BootstrapCluster(); err != nil {
 			l.Warn("exit since bootstraping a cluster failed", "error", err)
 			os.Exit(1)
 		}
 	} else {
-		conn, err := grpc.DialContext(ctx, joinAddr, grpc.WithInsecure())
+		conn, err := grpc.DialContext(ctx, conf.JoinAddr, grpc.WithInsecure())
 		if err != nil {
-			l.Warn(fmt.Sprintf("failed to dial a gRPC server at %s", joinAddr), "error", err)
+			l.Warn(fmt.Sprintf("failed to dial a gRPC server at %s", conf.JoinAddr), "error", err)
 			cancel()
 			return
 		}
 		c := raftkvpb.NewRaftkvServiceClient(conn)
 		op := func() error {
 			_, err = c.Join(ctx, &raftkvpb.JoinRequest{
-				ServerId: serverId,
-				Address:  advertise,
+				ServerId: conf.ServerId,
+				Address:  conf.AdvertiseAddr,
 			})
 			return err
 		}
-		l.Info("new server is joining to a cluster", "server_id", serverId, "raft_addr", advertise)
+		l.Info("new server is joining to a cluster", "server_id", conf.ServerId, "advertise_addr", conf.AdvertiseAddr)
 		if err := backoff.Retry(op, backoff.NewExponentialBackOff()); err != nil {
 			l.Warn("new server failed to join a cluster", "error", err)
 			cancel()
@@ -130,29 +83,17 @@ func main() {
 		_ = conn.Close()
 	}
 
-	server, err := raftkvpb.NewServer(ctx, grpcAddr, grpcgwAddr, l, s)
+	server, err := raftkvpb.NewServer(ctx, conf.GRPCAddr(), conf.GRPCGWAddr(), l, kvserver)
 	if err != nil {
 		l.Warn("exit due to a failure of initializing a server", "error", err)
 		cancel()
 	}
-	if err := server.Start(ctx, grpcAddr); err != nil {
+	if err := server.Start(ctx, conf.GRPCAddr()); err != nil {
 		l.Warn("exit due to a failure of starting a server", "error", err)
 		cancel()
 	}
 
 	<-ctx.Done()
-	_ = s.Shutdown()
+	_ = kvserver.Shutdown()
 	server.Stop()
-}
-
-func getEnvInt(key string, defaulti int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return defaulti
-	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return defaulti
-	}
-	return i
 }
