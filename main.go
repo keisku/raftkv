@@ -24,7 +24,7 @@ func init() {
 	// setup a logger
 	l = hclog.New(hclog.DefaultOptions)
 
-	if err := conf.LoadConfig(); err != nil {
+	if err := conf.Load(); err != nil {
 		l.Warn("exit since loading environment variables failed", "error", err)
 		os.Exit(1)
 	}

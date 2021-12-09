@@ -28,8 +28,8 @@ type Values struct {
 	LogLevel int
 }
 
-// LoadConfig loads environment variables.
-func (v *Values) LoadConfig() error {
+// Load loads environment variables.
+func (v *Values) Load() error {
 	// Required values
 	flag.StringVar(&v.ServerId, "server-id", os.Getenv("SERVER_ID"), "a unique ID for this server across all time")
 	flag.StringVar(&v.AdvertiseAddr, "advertise-addr", os.Getenv("ADVERTISE_ADDR"), "Sets the advertise address to use")
