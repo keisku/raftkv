@@ -88,7 +88,7 @@ func main() {
 		l.Warn("exit due to a failure of initializing a server", "error", err)
 		cancel()
 	}
-	if err := server.Start(ctx, conf.GRPCAddr()); err != nil {
+	if err := server.Start(conf.GRPCAddr()); err != nil {
 		l.Warn("exit due to a failure of starting a server", "error", err)
 		cancel()
 	}

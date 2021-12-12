@@ -15,6 +15,7 @@ import (
 type Server struct {
 	logger         hclog.Logger
 	gRPCServer     *grpc.Server
+	gRPCListener   net.Listener
 	gRPCClientConn *grpc.ClientConn
 	gRPCGWServer   *http.Server
 }
@@ -64,21 +65,16 @@ func newgRPCGWServer(ctx context.Context, gRPCAddr, gRPCGWAddr string) (*http.Se
 	}, conn, nil
 }
 
-func (s *Server) Start(ctx context.Context, gRPCAddr string) error {
+func (s *Server) Start(gRPCAddr string) error {
 	s.logger.Info("Starting gRPC and HTTP servers")
 	lis, err := net.Listen("tcp", gRPCAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen to gRPC addr: %w", err)
 	}
+	s.gRPCListener = lis
 
 	go s.gRPCServer.Serve(lis)
 	go s.gRPCGWServer.ListenAndServe()
-
-	<-ctx.Done()
-	if err := lis.Close(); err != nil {
-		s.logger.Error("failed to close listener to gRPC server", "error", err)
-		return nil
-	}
 	return nil
 }
 
@@ -89,6 +85,9 @@ func (s *Server) Stop() {
 		if err := s.gRPCGWServer.Shutdown(ctx); err != nil {
 			s.logger.Error("failed to shutdown gRPC gateway server", "error", err)
 		}
+	}
+	if err := s.gRPCListener.Close(); err != nil {
+		s.logger.Error("failed to close listener to gRPC server", "error", err)
 	}
 	if s.gRPCServer != nil {
 		s.logger.Info("gRPC server is gracefully stopping")
