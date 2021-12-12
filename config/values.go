@@ -17,8 +17,9 @@ type Values struct {
 	// A port raft gRPC server listens to
 	GRPCPort int
 	// A port raft gRPC-Gateway server listens to
-	GRPCGWPort int // Path to a data directory to store raftkv state.
-	DataDir    string
+	GRPCGWPort int
+	// Path to a data directory to store raftkv state.
+	DataDir string
 	// An address to send a join request.
 	JoinAddr string
 	// How many connections we will pool
