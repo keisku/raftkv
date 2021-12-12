@@ -14,6 +14,7 @@ import (
 
 type Server struct {
 	logger         hclog.Logger
+	gRPCAddr       string
 	gRPCServer     *grpc.Server
 	gRPCListener   net.Listener
 	gRPCClientConn *grpc.ClientConn
@@ -28,6 +29,7 @@ func NewServer(ctx context.Context, gRPCAddr, gRPCGWAddr string, l hclog.Logger,
 	}
 	return &Server{
 		logger:         l,
+		gRPCAddr:       gRPCAddr,
 		gRPCServer:     grpcServer,
 		gRPCClientConn: conn,
 		gRPCGWServer:   httpServer,
@@ -65,9 +67,9 @@ func newgRPCGWServer(ctx context.Context, gRPCAddr, gRPCGWAddr string) (*http.Se
 	}, conn, nil
 }
 
-func (s *Server) Start(gRPCAddr string) error {
+func (s *Server) Start() error {
 	s.logger.Info("Starting gRPC and HTTP servers")
-	lis, err := net.Listen("tcp", gRPCAddr)
+	lis, err := net.Listen("tcp", s.gRPCAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen to gRPC addr: %w", err)
 	}
