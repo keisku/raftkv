@@ -90,13 +90,6 @@ func (s *Store) Apply(rl *raft.Log) interface{} {
 	}
 }
 
-func (s *Store) ApplyBatch(rls []*raft.Log) []interface{} {
-	for _, rl := range rls {
-		s.Apply(rl)
-	}
-	return nil
-}
-
 func (s *Store) applySetCommand(key, value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
