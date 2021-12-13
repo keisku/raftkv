@@ -1,28 +1,14 @@
 version: "3.8"
 services:
-  server0:
-    build:
-      context: .
-    ports:
-      - 50001:50001
-      - 50002:50002
-    environment:
-      SERVER_ID: server0
-      ADVERTISE_ADDR: server0:50000
-      GRPC_PORT: 50001
-      GRPC_GATEWAY_PORT: 50002
-      DATA_DIR: /raftkv/data/server0
-    networks:
-      - default
   server1:
     build:
       context: .
     ports:
+      - 50101:50101
       - 50102:50102
     environment:
       SERVER_ID: server1
       ADVERTISE_ADDR: server1:50100
-      JOIN_ADDR: server0:50001
       GRPC_PORT: 50101
       GRPC_GATEWAY_PORT: 50102
       DATA_DIR: /raftkv/data/server1
@@ -36,9 +22,23 @@ services:
     environment:
       SERVER_ID: server2
       ADVERTISE_ADDR: server2:50200
-      JOIN_ADDR: server0:50001
+      JOIN_ADDR: server1:50101
       GRPC_PORT: 50201
       GRPC_GATEWAY_PORT: 50202
       DATA_DIR: /raftkv/data/server2
+    networks:
+      - default
+  server3:
+    build:
+      context: .
+    ports:
+      - 50302:50302
+    environment:
+      SERVER_ID: server3
+      ADVERTISE_ADDR: server3:50300
+      JOIN_ADDR: server1:50101
+      GRPC_PORT: 50301
+      GRPC_GATEWAY_PORT: 50302
+      DATA_DIR: /raftkv/data/server3
     networks:
       - default
