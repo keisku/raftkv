@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-hclog"
 	"github.com/kei6u/raftkv/config"
 	"github.com/kei6u/raftkv/kv"
 	raftkvpb "github.com/kei6u/raftkv/proto/v1"
+	"github.com/kei6u/retry"
 	"google.golang.org/grpc"
 )
 
@@ -67,18 +67,20 @@ func main() {
 			return
 		}
 		c := raftkvpb.NewRaftkvServiceClient(conn)
-		op := func() error {
+		l.Info("new server is joining to a cluster", "server_id", conf.ServerId, "advertise_addr", conf.AdvertiseAddr)
+		r := retry.New(retry.Jitter{})
+		for r.Next() {
 			_, err = c.Join(ctx, &raftkvpb.JoinRequest{
 				ServerId: conf.ServerId,
 				Address:  conf.AdvertiseAddr,
 			})
-			return err
+			if err == nil {
+				break
+			}
 		}
-		l.Info("new server is joining to a cluster", "server_id", conf.ServerId, "advertise_addr", conf.AdvertiseAddr)
-		if err := backoff.Retry(op, backoff.NewExponentialBackOff()); err != nil {
+		if err != nil {
 			l.Warn("new server failed to join a cluster", "error", err)
 			cancel()
-			return
 		}
 		_ = conn.Close()
 	}
